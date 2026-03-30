@@ -498,6 +498,15 @@ function showToast(msg) {
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => t.classList.remove('show'), 3000)
 }
+// รับ mode จาก URL parameter
+function initFromURL() {
+  const params = new URLSearchParams(window.location.search)
+  const mode = params.get('mode')
+  if (mode === 'ai') showNameScreen('ai')
+  else if (mode === 'create') showNameScreen('create')
+  else if (mode === 'join') showNameScreen('join')
+}
+initFromURL()
 </script>
 </body>
 </html>
