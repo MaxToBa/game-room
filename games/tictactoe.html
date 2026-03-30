@@ -416,24 +416,42 @@ function checkWinner() {
   return null
 }
 
-function endGame(winner) {
+async function endGame(winner) {
   gameOver = true
   if (winner) {
     document.querySelectorAll('.cell').forEach((cell, i) => {
       if (winner.line.includes(i)) cell.classList.add('win-cell')
     })
     const iWon = winner.symbol === mySymbol
-    const aiName = 'Claude AI'
+    const opponentName = gameMode === 'ai' ? 'Claude AI' : 'เพื่อน'
+
     if (gameMode === 'ai') {
-      updateStatus(iWon ? `🎉 ${myName} ชนะ!` : `🤖 ${aiName} ชนะ!`, 'win')
+      updateStatus(iWon ? `🎉 ${myName} ชนะ!` : `🤖 Claude AI ชนะ!`, 'win')
       showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : 'AI ชนะครั้งนี้ ลองใหม่!')
     } else {
       updateStatus(iWon ? `🎉 ${myName} ชนะ!` : '😔 คุณแพ้!', 'win')
       showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : 'เสียใจด้วย ลองใหม่!')
     }
+
+    // บันทึกผลเกม
+    await db.from('game_results').insert({
+      player_name: myName,
+      game: 'tictactoe',
+      result: iWon ? 'win' : 'loss',
+      opponent: gameMode === 'ai' ? 'Claude AI' : opponentName
+    })
+
   } else {
     updateStatus('🤝 เสมอกัน!', 'draw')
     showToast('เสมอกัน! สู้อีกรอบ!')
+
+    // บันทึกผลเสมอ
+    await db.from('game_results').insert({
+      player_name: myName,
+      game: 'tictactoe',
+      result: 'draw',
+      opponent: gameMode === 'ai' ? 'Claude AI' : 'เพื่อน'
+    })
   }
 }
 
