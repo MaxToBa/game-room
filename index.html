@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GameRoom — เลือกเกม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --accent3: #f05a5a; --green: #4fcf8e;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+  }
+  html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 0; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 500px; height: 500px; background: rgba(124,106,245,0.12); top: -150px; right: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: rgba(232,197,71,0.07); bottom: 0; left: -100px; }
+  .wrapper { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 32px 0 0; animation: fadeDown 0.6s ease both; }
+  .logo { font-family: var(--font-display); font-size: 26px; letter-spacing: -0.5px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; display: inline-block; animation: pulse 2s ease-in-out infinite; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .online-badge { display: flex; align-items: center; gap: 7px; background: rgba(79,207,142,0.1); border: 1px solid rgba(79,207,142,0.2); padding: 6px 14px; border-radius: 999px; font-size: 13px; color: var(--green); font-family: var(--font-ui); font-weight: 600; }
+  .online-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+  .user-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 18px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .user-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+  .hero { padding: 72px 0 56px; animation: fadeDown 0.6s 0.1s ease both; }
+  .hero-eyebrow { font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); margin-bottom: 18px; }
+  .hero-title { font-family: var(--font-display); font-size: clamp(42px, 7vw, 80px); line-height: 1.05; letter-spacing: -2px; color: var(--text); max-width: 700px; }
+  .hero-title em { font-style: italic; color: var(--accent2); }
+  .hero-sub { margin-top: 20px; font-size: 16px; color: var(--muted); line-height: 1.7; max-width: 480px; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 36px; flex-wrap: wrap; animation: fadeUp 0.6s 0.2s ease both; }
+  .filter-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 8px 18px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .filter-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .filter-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; animation: fadeUp 0.6s 0.3s ease both; }
+  .game-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; cursor: pointer; transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1); position: relative; }
+  .game-card:hover { border-color: var(--border-hover); transform: translateY(-4px); box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .game-card.featured { grid-column: span 2; }
+  .card-visual { height: 180px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .game-card.featured .card-visual { height: 240px; }
+  .card-visual::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, var(--surface) 100%); }
+  .card-bg-1 { background: linear-gradient(135deg, #1a1030 0%, #2a1a5e 100%); }
+  .card-bg-2 { background: linear-gradient(135deg, #0f2018 0%, #0a3d1f 100%); }
+  .card-bg-3 { background: linear-gradient(135deg, #1f0f0f 0%, #4a1515 100%); }
+  .card-bg-4 { background: linear-gradient(135deg, #0f1a2f 0%, #0a2a4a 100%); }
+  .card-bg-5 { background: linear-gradient(135deg, #1a1500 0%, #3d3000 100%); }
+  .card-bg-6 { background: linear-gradient(135deg, #1a0f1a 0%, #3d1a3d 100%); }
+  .card-emoji { font-size: 64px; position: relative; z-index: 1; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.6)); transition: transform 0.3s ease; }
+  .game-card:hover .card-emoji { transform: scale(1.1) rotate(-5deg); }
+  .card-body { padding: 20px 22px 22px; }
+  .card-tags { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .tag { font-family: var(--font-ui); font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; border: 1px solid; }
+  .tag-multi { color: var(--accent2); border-color: rgba(124,106,245,0.3); background: rgba(124,106,245,0.1); }
+  .tag-solo { color: var(--accent); border-color: rgba(232,197,71,0.3); background: rgba(232,197,71,0.1); }
+  .tag-new { color: var(--green); border-color: rgba(79,207,142,0.3); background: rgba(79,207,142,0.1); }
+  .tag-hot { color: var(--accent3); border-color: rgba(240,90,90,0.3); background: rgba(240,90,90,0.1); }
+  .card-name { font-family: var(--font-display); font-size: 22px; color: var(--text); margin-bottom: 6px; line-height: 1.2; }
+  .game-card.featured .card-name { font-size: 28px; }
+  .card-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; }
+  .players-info { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-family: var(--font-ui); }
+  .player-avatars { display: flex; }
+  .avatar { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--surface); margin-right: -6px; font-size: 12px; display: flex; align-items: center; justify-content: center; background: var(--surface2); }
+  .play-btn { background: var(--text); color: var(--bg); border: none; padding: 9px 20px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+  .play-btn:hover { background: var(--accent); transform: scale(1.05); }
+  .featured-play { background: var(--accent2); color: #fff; }
+  .featured-play:hover { background: #9d8fff; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--surface); border: 1px solid var(--border-hover); border-radius: 24px; padding: 36px; max-width: 440px; width: 100%; transform: scale(0.95) translateY(10px); transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1); position: relative; }
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+  .modal-emoji { font-size: 52px; margin-bottom: 16px; display: block; }
+  .modal-title { font-family: var(--font-display); font-size: 28px; margin-bottom: 8px; }
+  .modal-desc { font-size: 15px; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+  .modal-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .mode-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; cursor: pointer; transition: all 0.2s; text-align: left; color: var(--text); }
+  .mode-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+  .mode-btn-title { font-family: var(--font-ui); font-weight: 700; font-size: 15px; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .mode-btn-sub { font-size: 13px; color: var(--muted); }
+  .modal-close { position: absolute; top: 20px; right: 20px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .modal-close:hover { color: var(--text); border-color: var(--border-hover); }
+  .login-modal { max-width: 380px; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; color: var(--text); font-family: var(--font-th); font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .submit-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 13px; border-radius: 12px; font-family: var(--font-ui); font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
+  .submit-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .room-display { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 20px; }
+  .room-label { font-size: 12px; font-family: var(--font-ui); font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .room-code { font-family: var(--font-display); font-size: 42px; letter-spacing: 8px; color: var(--accent); }
+  .room-hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .copy-btn { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--text); padding: 11px; border-radius: 10px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
+  .copy-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.04); }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 640px) { .game-card.featured { grid-column: span 1; } .hero-title { letter-spacing: -1px; } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="wrapper">
+  <header>
+    <div class="logo"><span class="logo-dot"></span>GameRoom</div>
+    <div class="header-right">
+      <div class="online-badge"><span class="online-dot"></span>247 ออนไลน์</div>
+      <button class="user-btn" onclick="openLogin()">เข้าสู่ระบบ</button>
+    </div>
+  </header>
+  <section class="hero">
+    <p class="hero-eyebrow">✦ Multi-player Board Games</p>
+    <h1 class="hero-title">เล่นเกม<br><em>กับเพื่อน</em><br>ได้ทุกที่</h1>
+    <p class="hero-sub">เลือกเกมที่ชอบ สร้างห้อง แล้วส่ง code ให้เพื่อน หรือเล่นคนเดียวกับ AI ก็ได้</p>
+  </section>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterGames('all', this)">ทั้งหมด</button>
+    <button class="filter-btn" onclick="filterGames('multi', this)">หลายคน</button>
+    <button class="filter-btn" onclick="filterGames('solo', this)">คนเดียว</button>
+    <button class="filter-btn" onclick="filterGames('strategy', this)">กลยุทธ์</button>
+    <button class="filter-btn" onclick="filterGames('classic', this)">คลาสสิก</button>
+  </div>
+  <div class="game-grid" id="gameGrid">
+    <div class="game-card featured" data-tags="multi strategy classic" onclick="openGame('chess')">
+      <div class="card-visual card-bg-1"><span class="card-emoji">♟️</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-hot">🔥 ยอดนิยม</span></div>
+        <div class="card-name">หมากรุกสากล</div>
+        <div class="card-desc">Chess คลาสสิกที่เล่นได้กับเพื่อน หรือฝึกกับ AI ที่มีหลายระดับความยาก</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <button class="play-btn featured-play">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi classic" onclick="openGame('tictactoe')">
+      <div class="card-visual card-bg-2"><span class="card-emoji">⭕</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">✦ เริ่มต้น</span></div>
+        <div class="card-name">โอ-ซี</div>
+        <div class="card-desc">Tic-Tac-Toe ง่าย เร็ว สนุก เล่นกับเพื่อนหรือ AI</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi" onclick="openGame('uno')">
+      <div class="card-visual card-bg-3"><span class="card-emoji">🃏</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-hot">🔥 สนุก</span></div>
+        <div class="card-name">UNO</div>
+        <div class="card-desc">เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div><div class="avatar">👤</div></div>2-6 คน</div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi strategy" onclick="openGame('battleship')">
+      <div class="card-visual card-bg-4"><span class="card-emoji">🚢</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">กลยุทธ์</span></div>
+        <div class="card-name">Battle Ship</div>
+        <div class="card-desc">วางเรือ เดาตำแหน่ง จมเรือศัตรูให้หมดก่อน</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="solo strategy" onclick="openGame('2048')">
+      <div class="card-visual card-bg-5"><span class="card-emoji">🔢</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-solo">Solo</span></div>
+        <div class="card-name">2048</div>
+        <div class="card-desc">รวมตัวเลขให้ถึง 2048 เกมกลยุทธ์ที่ง่ายแต่เลิกไม่ได้</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div></div>1 คน</div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi strategy classic" onclick="openGame('gomoku')">
+      <div class="card-visual card-bg-6"><span class="card-emoji">⚫</span></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">คลาสสิก</span></div>
+        <div class="card-name">โกะ / Gomoku</div>
+        <div class="card-desc">วางหมากให้ได้ 5 ตัวในแนวเดียวกัน เกมกลยุทธ์ที่ลึกกว่าที่คิด</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Game Modal -->
+<div class="modal-overlay" id="gameModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('gameModal')">✕</button>
+    <span class="modal-emoji" id="modalEmoji">♟️</span>
+    <div class="modal-title" id="modalTitle">หมากรุกสากล</div>
+    <div class="modal-desc" id="modalDesc">เลือกโหมดที่อยากเล่น</div>
+    <div class="modal-options">
+      <button class="mode-btn" onclick="startGame('vs-friend')">
+        <div class="mode-btn-title">👥 เล่นกับเพื่อน</div>
+        <div class="mode-btn-sub">สร้างห้อง แล้วส่ง code ให้เพื่อนเข้ามาร่วม</div>
+      </button>
+      <button class="mode-btn" onclick="startGame('vs-ai')">
+        <div class="mode-btn-title">🤖 เล่นกับ AI</div>
+        <div class="mode-btn-sub">ฝึกฝีมือกับ Claude AI ที่ปรับระดับได้</div>
+      </button>
+      <button class="mode-btn" onclick="startGame('join')">
+        <div class="mode-btn-title">🔑 เข้าร่วมห้อง</div>
+        <div class="mode-btn-sub">มี room code แล้ว กรอกเพื่อเข้าร่วม</div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Room Modal -->
+<div class="modal-overlay" id="roomModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('roomModal')">✕</button>
+    <div class="modal-title" style="margin-bottom:20px">ห้องของคุณพร้อมแล้ว ✦</div>
+    <div class="room-display">
+      <div class="room-label">Room Code</div>
+      <div class="room-code" id="roomCode">—</div>
+      <div class="room-hint">รอเพื่อนกรอก code นี้เพื่อเข้าร่วม</div>
+    </div>
+    <button class="copy-btn" onclick="copyCode()">📋 คัดลอก Code</button>
+    <button class="submit-btn">รอเพื่อนเข้าห้อง...</button>
+  </div>
+</div>
+
+<!-- Join Modal -->
+<div class="modal-overlay" id="joinModal">
+  <div class="modal login-modal">
+    <button class="modal-close" onclick="closeModal('joinModal')">✕</button>
+    <div class="modal-title" style="margin-bottom:8px">กรอก Room Code</div>
+    <div class="modal-desc">ขอ code จากเพื่อนที่สร้างห้อง</div>
+    <div class="form-group">
+      <label class="form-label">Room Code</label>
+      <input class="form-input" id="joinCodeInput" placeholder="เช่น AB3X9K" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-size:20px;text-align:center">
+    </div>
+    <button class="submit-btn" onclick="joinRoom()">เข้าร่วมห้อง →</button>
+  </div>
+</div>
+
+<!-- Login Modal -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal login-modal">
+    <button class="modal-close" onclick="closeModal('loginModal')">✕</button>
+    <div class="modal-title" style="margin-bottom:8px">เข้าสู่ระบบ</div>
+    <div class="modal-desc">ล็อกอินเพื่อบันทึกประวัติการเล่น</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้ใช้หรืออีเมล</label>
+      <input class="form-input" placeholder="username หรือ email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">รหัสผ่าน</label>
+      <input class="form-input" type="password" placeholder="••••••••">
+    </div>
+    <button class="submit-btn" onclick="showToast('เข้าสู่ระบบสำเร็จ! 🎉'); closeModal('loginModal')">เข้าสู่ระบบ →</button>
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--muted)">ยังไม่มีบัญชี? <a href="#" style="color:var(--accent2)">สมัครฟรี</a></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const games = {
+  chess:      { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI หลายระดับ' },
+  tictactoe:  { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI' },
+  uno:        { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!' },
+  battleship: { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน' },
+  '2048':     { emoji:'🔢', name:'2048',           desc:'รวมตัวเลขให้ถึง 2048' },
+  gomoku:     { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน' },
+};
+let currentGame = null;
+
+function openGame(id) {
+  currentGame = id;
+  const g = games[id];
+  document.getElementById('modalEmoji').textContent = g.emoji;
+  document.getElementById('modalTitle').textContent = g.name;
+  document.getElementById('modalDesc').textContent = g.desc;
+  openModal('gameModal');
+}
+function startGame(mode) {
+  closeModal('gameModal');
+  if (mode === 'vs-friend') {
+    const code = Math.random().toString(36).substring(2,8).toUpperCase();
+    document.getElementById('roomCode').textContent = code;
+    openModal('roomModal');
+  } else if (mode === 'join') {
+    openModal('joinModal');
+  } else {
+    showToast('กำลังโหลด ' + games[currentGame].name + ' vs AI... 🤖');
+  }
+}
+function joinRoom() {
+  const code = document.getElementById('joinCodeInput').value.trim();
+  if (code.length < 4) { showToast('กรุณากรอก code ให้ครบ'); return; }
+  closeModal('joinModal');
+  showToast('กำลังเข้าห้อง ' + code + '... 🎮');
+}
+function copyCode() {
+  const code = document.getElementById('roomCode').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('คัดลอก ' + code + ' แล้ว! ✓'));
+}
+function openLogin() { openModal('loginModal'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+document.querySelectorAll('.game-card').forEach((card, i) => {
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(24px)';
+  card.style.transition = `opacity 0.5s ${0.35 + i * 0.07}s ease, transform 0.5s ${0.35 + i * 0.07}s ease, border-color 0.3s, box-shadow 0.3s`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0)';
+  }));
+});
+</script>
+</body>
+</html>
