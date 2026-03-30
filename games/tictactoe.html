@@ -21,14 +21,10 @@
   .blob-1 { width: 400px; height: 400px; background: rgba(124,106,245,0.1); top: -100px; right: -100px; }
   .blob-2 { width: 300px; height: 300px; background: rgba(232,197,71,0.06); bottom: 0; left: -80px; }
   .container { position: relative; z-index: 1; width: 100%; max-width: 480px; }
-
-  /* Header */
   .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
   .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
   .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
   .game-title { font-family: var(--font-display); font-size: 24px; }
-
-  /* Status bar */
   .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
   .status-text { font-size: 15px; font-weight: 600; }
   .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
@@ -36,16 +32,12 @@
   .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
   .badge-win { background: rgba(124,106,245,0.15); color: var(--accent2); }
   .badge-draw { background: rgba(107,104,128,0.2); color: var(--muted); }
-
-  /* Players */
   .players-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 24px; }
   .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; text-align: center; transition: all 0.3s; }
   .player-card.active { border-color: var(--accent2); box-shadow: 0 0 20px rgba(124,106,245,0.2); }
   .player-symbol { font-family: var(--font-display); font-size: 28px; margin-bottom: 4px; }
-  .player-name { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; }
+  .player-name { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vs-text { font-family: var(--font-display); font-size: 18px; color: var(--muted); text-align: center; }
-
-  /* Board */
   .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
   .cell { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 52px; cursor: pointer; transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1); user-select: none; }
   .cell:hover:not(.filled) { border-color: var(--border-hover); background: var(--surface2); transform: scale(1.03); }
@@ -53,58 +45,52 @@
   .cell.x { color: var(--accent2); }
   .cell.o { color: var(--accent); }
   .cell.win-cell { background: rgba(124,106,245,0.15); border-color: var(--accent2); animation: winPulse 0.6s ease; }
-
-  /* Buttons */
   .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 14px; border-radius: 14px; font-family: var(--font-ui); font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
   .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
   .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
   .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); transform: translateY(-1px); }
-
-  /* Room display */
   .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
   .room-code-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 4px; }
   .room-code-text { font-family: var(--font-display); font-size: 24px; letter-spacing: 4px; color: var(--accent); }
   .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
   .copy-code-btn:hover { border-color: var(--border-hover); }
-
-  /* Setup screen */
   .setup-screen { text-align: center; padding: 20px 0; }
   .setup-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 8px; }
-  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 36px; line-height: 1.6; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
   .setup-options { display: flex; flex-direction: column; gap: 12px; }
   .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
   .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
   .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
   .mode-card-sub { font-size: 13px; color: var(--muted); }
-
-  /* Join screen */
-  .join-screen { text-align: center; padding: 20px 0; }
-  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: var(--font-th); font-size: 18px; outline: none; transition: border-color 0.2s; text-align: center; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 12px; }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
   .form-input:focus { border-color: var(--accent2); }
-  .form-input::placeholder { color: var(--muted); letter-spacing: 2px; font-size: 14px; }
-
-  /* AI thinking */
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
   .ai-thinking { display: none; align-items: center; gap: 10px; justify-content: center; padding: 12px; color: var(--muted); font-size: 14px; font-family: var(--font-ui); }
   .ai-thinking.show { display: flex; }
   .dot-pulse { display: flex; gap: 4px; }
   .dot-pulse span { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
   .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
   .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
-
-  /* Toast */
+  .coin-flip { text-align: center; padding: 32px 0; }
+  .coin { font-size: 64px; display: block; margin-bottom: 16px; animation: spin 0.6s ease-in-out; }
+  .coin-text { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .coin-sub { color: var(--muted); font-size: 14px; }
   .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
   @keyframes winPulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
   @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(720deg); } }
   .fade-in { animation: fadeIn 0.4s ease both; }
 </style>
 </head>
 <body>
 <div class="blob blob-1"></div>
 <div class="blob blob-2"></div>
-
 <div class="container">
   <div class="top-bar">
     <a href="../index.html" class="back-btn">← กลับ</a>
@@ -117,33 +103,48 @@
     <div class="setup-title">เลือกโหมด</div>
     <div class="setup-sub">เล่นกับเพื่อนออนไลน์<br>หรือสู้กับ AI</div>
     <div class="setup-options">
-      <div class="mode-card" onclick="startVsAI()">
+      <div class="mode-card" onclick="showNameScreen('ai')">
         <div class="mode-card-title">🤖 เล่นกับ AI</div>
-        <div class="mode-card-sub">ฝึกฝีมือกับ Claude AI เดี๋ยวนี้เลย ไม่ต้องรอใคร</div>
+        <div class="mode-card-sub">ฝึกฝีมือกับ Claude AI เดี๋ยวนี้เลย</div>
       </div>
-      <div class="mode-card" onclick="showCreateRoom()">
+      <div class="mode-card" onclick="showNameScreen('create')">
         <div class="mode-card-title">👥 สร้างห้องเชิญเพื่อน</div>
         <div class="mode-card-sub">สร้าง room code แล้วส่งให้เพื่อนเข้ามาร่วม</div>
       </div>
-      <div class="mode-card" onclick="showJoinRoom()">
+      <div class="mode-card" onclick="showNameScreen('join')">
         <div class="mode-card-title">🔑 เข้าร่วมห้อง</div>
         <div class="mode-card-sub">มี room code จากเพื่อนแล้ว กรอกเพื่อเข้าเลย</div>
       </div>
     </div>
   </div>
 
-  <!-- Join Room Screen -->
-  <div id="joinScreen" style="display:none" class="join-screen fade-in">
-    <div class="setup-title" style="margin-bottom:8px">กรอก Room Code</div>
-    <div class="setup-sub">ขอ code จากเพื่อนที่สร้างห้อง</div>
-    <input class="form-input" id="joinInput" placeholder="เช่น AB3X9K" maxlength="6">
-    <button class="action-btn" onclick="joinRoom()">เข้าร่วมห้อง →</button>
+  <!-- Name Screen -->
+  <div id="nameScreen" style="display:none" class="name-screen fade-in">
+    <div class="setup-title" style="margin-bottom:8px;text-align:center">ใส่ชื่อของคุณ</div>
+    <div class="setup-sub" style="text-align:center">ชื่อนี้จะแสดงให้เพื่อนเห็น</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="nameInput" placeholder="เช่น MaxToBa" maxlength="16">
+    </div>
+    <div id="joinCodeGroup" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Room Code</label>
+        <input class="form-input code-input" id="joinInput" placeholder="AB3X9K" maxlength="6">
+      </div>
+    </div>
+    <button class="action-btn" id="nameNextBtn" onclick="handleNameNext()">ถัดไป →</button>
     <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Coin Flip Screen -->
+  <div id="coinScreen" style="display:none" class="coin-flip fade-in">
+    <span class="coin" id="coinEmoji">🪙</span>
+    <div class="coin-text" id="coinText">สุ่มว่าใครไปก่อน...</div>
+    <div class="coin-sub" id="coinSub">กำลังโยนเหรียญ</div>
   </div>
 
   <!-- Game Screen -->
   <div id="gameScreen" style="display:none" class="fade-in">
-
     <div class="room-info" id="roomInfo" style="display:none">
       <div>
         <div class="room-code-label">Room Code</div>
@@ -151,12 +152,10 @@
       </div>
       <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
     </div>
-
     <div class="status-bar">
       <div class="status-text" id="statusText">กำลังโหลด...</div>
       <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
     </div>
-
     <div class="players-bar">
       <div class="player-card" id="player1Card">
         <div class="player-symbol" style="color:var(--accent2)">✕</div>
@@ -168,7 +167,6 @@
         <div class="player-name" id="player2Name">ผู้เล่น 2</div>
       </div>
     </div>
-
     <div class="board" id="board">
       <div class="cell" onclick="makeMove(0)"></div>
       <div class="cell" onclick="makeMove(1)"></div>
@@ -180,80 +178,116 @@
       <div class="cell" onclick="makeMove(7)"></div>
       <div class="cell" onclick="makeMove(8)"></div>
     </div>
-
     <div class="ai-thinking" id="aiThinking">
       <span>AI กำลังคิด</span>
       <div class="dot-pulse"><span></span><span></span><span></span></div>
     </div>
-
     <button class="action-btn secondary" onclick="resetGame()" style="margin-top:8px">🔄 เล่นใหม่</button>
     <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-// ===== CONFIG =====
-// โหลด Supabase จาก js/supabase.js ไม่ได้เพราะอยู่คนละโฟลเดอร์
-// ให้ copy ค่าจาก js/supabase.js มาใส่ตรงนี้แทน
 const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// ===== STATE =====
 let board = Array(9).fill(null)
 let currentTurn = 'X'
 let mySymbol = 'X'
-let gameMode = null  // 'ai' หรือ 'online'
+let myName = ''
+let gameMode = null
 let roomId = null
 let gameOver = false
 let realtimeChannel = null
+let pendingMode = null
 
 const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
-// ===== SCREENS =====
 function showScreen(id) {
-  ['setupScreen','joinScreen','gameScreen'].forEach(s => {
+  ['setupScreen','nameScreen','coinScreen','gameScreen'].forEach(s => {
     document.getElementById(s).style.display = 'none'
   })
   document.getElementById(id).style.display = 'block'
 }
 
-function showCreateRoom() {
-  const code = Math.random().toString(36).substring(2,8).toUpperCase()
-  startOnlineGame(code, true)
+function showNameScreen(mode) {
+  pendingMode = mode
+  document.getElementById('joinCodeGroup').style.display = mode === 'join' ? 'block' : 'none'
+  document.getElementById('nameInput').value = ''
+  document.getElementById('joinInput').value = ''
+  showScreen('nameScreen')
 }
 
-function showJoinRoom() { showScreen('joinScreen') }
-
-function joinRoom() {
-  const code = document.getElementById('joinInput').value.trim().toUpperCase()
-  if (code.length < 4) { showToast('กรุณากรอก code ให้ครบ'); return; }
-  startOnlineGame(code, false)
+function handleNameNext() {
+  const name = document.getElementById('nameInput').value.trim()
+  if (!name) { showToast('กรุณาใส่ชื่อก่อนนะครับ'); return; }
+  myName = name
+  if (pendingMode === 'ai') {
+    showCoinFlip('ai')
+  } else if (pendingMode === 'create') {
+    const code = Math.random().toString(36).substring(2,8).toUpperCase()
+    showCoinFlip('create', code)
+  } else {
+    const code = document.getElementById('joinInput').value.trim().toUpperCase()
+    if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return; }
+    startOnlineGame(code, false)
+  }
 }
 
-// ===== AI MODE =====
-function startVsAI() {
+function showCoinFlip(mode, code) {
+  showScreen('coinScreen')
+  const goFirst = Math.random() < 0.5
+  const emoji = document.getElementById('coinEmoji')
+  const text = document.getElementById('coinText')
+  const sub = document.getElementById('coinSub')
+
+  emoji.textContent = '🪙'
+  text.textContent = 'กำลังโยนเหรียญ...'
+  sub.textContent = 'สุ่มว่าใครได้ไปก่อน'
+
+  setTimeout(() => {
+    if (goFirst) {
+      emoji.textContent = '⭐'
+      text.textContent = `${myName} ได้ไปก่อน!`
+      sub.textContent = 'คุณจะเป็นฝ่าย ✕'
+      mySymbol = 'X'
+    } else {
+      emoji.textContent = '🎲'
+      text.textContent = `${mode === 'ai' ? 'AI' : 'เพื่อน'} ได้ไปก่อน!`
+      sub.textContent = 'คุณจะเป็นฝ่าย ○'
+      mySymbol = 'O'
+    }
+    setTimeout(() => {
+      if (mode === 'ai') startVsAI(goFirst)
+      else startOnlineGame(code, true, goFirst)
+    }, 1500)
+  }, 1200)
+}
+
+function startVsAI(goFirst) {
   gameMode = 'ai'
-  mySymbol = 'X'
   board = Array(9).fill(null)
   currentTurn = 'X'
   gameOver = false
-  document.getElementById('player1Name').textContent = 'คุณ'
-  document.getElementById('player2Name').textContent = 'Claude AI'
+  document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : 'Claude AI'
+  document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'Claude AI'
   document.getElementById('roomInfo').style.display = 'none'
   showScreen('gameScreen')
   updateBoard()
-  updateStatus('คุณเดินก่อน (✕)', 'playing')
+  if (mySymbol === 'X') {
+    updateStatus(`${myName} เดินก่อน (✕)`, 'playing')
+  } else {
+    updateStatus('AI เดินก่อน...', 'playing')
+    setTimeout(() => aiMove(), 600)
+  }
 }
 
 async function aiMove() {
   if (gameOver) return
   document.getElementById('aiThinking').classList.add('show')
-
-  // ส่ง board state ไปให้ Claude ผ่าน Supabase Edge Function
   try {
     const { data, error } = await db.functions.invoke('ai-move', {
       body: { game: 'tictactoe', gameState: { board, turn: 'O' } }
@@ -261,59 +295,63 @@ async function aiMove() {
     document.getElementById('aiThinking').classList.remove('show')
     if (error) throw error
     const idx = data.move.index
-    if (idx !== undefined && board[idx] === null) {
-      applyMove(idx, 'O')
-    } else {
-      // fallback: เดินช่องว่างแรกที่เจอ
+    if (idx !== undefined && board[idx] === null) applyMove(idx, currentTurn)
+    else {
       const empty = board.findIndex(c => c === null)
-      if (empty !== -1) applyMove(empty, 'O')
+      if (empty !== -1) applyMove(empty, currentTurn)
     }
   } catch(e) {
     document.getElementById('aiThinking').classList.remove('show')
-    // fallback ถ้า edge function ยังไม่พร้อม
     const empty = board.findIndex(c => c === null)
-    if (empty !== -1) applyMove(empty, 'O')
+    if (empty !== -1) applyMove(empty, currentTurn)
   }
 }
 
-// ===== ONLINE MODE =====
-async function startOnlineGame(code, isHost) {
+async function startOnlineGame(code, isHost, goFirst) {
   gameMode = 'online'
   roomId = code
-  mySymbol = isHost ? 'X' : 'O'
   board = Array(9).fill(null)
   currentTurn = 'X'
   gameOver = false
 
-  document.getElementById('player1Name').textContent = isHost ? 'คุณ (✕)' : 'เพื่อน (✕)'
-  document.getElementById('player2Name').textContent = isHost ? 'รอเพื่อน...' : 'คุณ (○)'
+  const firstSymbol = isHost ? mySymbol : (mySymbol === 'X' ? 'X' : 'O')
+
   document.getElementById('roomCodeDisplay').textContent = code
   document.getElementById('roomInfo').style.display = 'flex'
   showScreen('gameScreen')
   updateBoard()
 
   if (isHost) {
-    // สร้างห้องใน Supabase
     await db.from('rooms').upsert({
       id: code, game: 'tictactoe',
-      state: { board, turn: 'X' },
-      players: ['host'], status: 'waiting'
+      state: { board, turn: 'X', hostSymbol: mySymbol, hostName: myName },
+      players: [myName], status: 'waiting'
     })
+    document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : '...'
+    document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'รอเพื่อน...'
     updateStatus('รอเพื่อนเข้าห้อง...', 'waiting')
   } else {
-    // เข้าร่วมห้อง
     const { data } = await db.from('rooms').select().eq('id', code).single()
     if (!data) { showToast('ไม่พบห้องนี้ กรุณาเช็ค code ใหม่'); showScreen('setupScreen'); return; }
+    const hostName = data.state.hostName || 'เพื่อน'
+    const hostSymbol = data.state.hostSymbol || 'X'
+    mySymbol = hostSymbol === 'X' ? 'O' : 'X'
     board = data.state.board
     currentTurn = data.state.turn
+
+    document.getElementById('player1Name').textContent = hostSymbol === 'X' ? hostName : myName
+    document.getElementById('player2Name').textContent = hostSymbol === 'O' ? hostName : myName
+
     await db.from('rooms').update({
-      players: ['host','guest'], status: 'playing'
+      state: { ...data.state, guestName: myName },
+      players: [hostName, myName], status: 'playing'
     }).eq('id', code)
     updateBoard()
-    updateStatus('เกมเริ่มแล้ว!', 'playing')
+    const myTurn = currentTurn === mySymbol
+    updateStatus(myTurn ? 'ตาของคุณ!' : `รอ${hostName}เดิน...`, 'playing')
   }
 
-  // Subscribe realtime
+  if (realtimeChannel) realtimeChannel.unsubscribe()
   realtimeChannel = db.channel('room:' + code)
     .on('postgres_changes', {
       event: 'UPDATE', schema: 'public', table: 'rooms', filter: 'id=eq.' + code
@@ -321,34 +359,38 @@ async function startOnlineGame(code, isHost) {
       const s = payload.new.state
       board = s.board
       currentTurn = s.turn
+      const hostName = s.hostName || 'เพื่อน'
+      const guestName = s.guestName || 'เพื่อน'
+      const hostSymbol = s.hostSymbol || 'X'
+
+      document.getElementById('player1Name').textContent = hostSymbol === 'X' ? hostName : guestName
+      document.getElementById('player2Name').textContent = hostSymbol === 'O' ? hostName : guestName
+
       updateBoard()
-      if (payload.new.status === 'playing' && isHost) {
-        document.getElementById('player2Name').textContent = 'เพื่อน (○)'
-        updateStatus('เกมเริ่มแล้ว!', 'playing')
+      if (payload.new.status === 'playing' && isHost && guestName) {
+        showToast(`${guestName} เข้าร่วมแล้ว! 🎮`)
       }
       const winner = checkWinner()
       if (winner) { endGame(winner); return; }
       if (board.every(c => c !== null)) { endGame(null); return; }
       const myTurn = currentTurn === mySymbol
-      updateStatus(myTurn ? 'ตาของคุณ!' : 'รอเพื่อนเดิน...', 'playing')
+      const opponentName = isHost ? (s.guestName || 'เพื่อน') : hostName
+      updateStatus(myTurn ? 'ตาของคุณ!' : `รอ${opponentName}เดิน...`, 'playing')
     })
     .subscribe()
 }
 
-// ===== GAME LOGIC =====
 async function makeMove(idx) {
   if (gameOver || board[idx] !== null) return
-  if (gameMode === 'online' && currentTurn !== mySymbol) {
-    showToast('ยังไม่ถึงตาคุณ!'); return
-  }
+  if (gameMode === 'online' && currentTurn !== mySymbol) { showToast('ยังไม่ถึงตาคุณ!'); return; }
   applyMove(idx, currentTurn)
   if (gameMode === 'online') {
     await db.from('rooms').update({
-      state: { board, turn: currentTurn }
+      state: { board, turn: currentTurn, hostSymbol: mySymbol, hostName: myName }
     }).eq('id', roomId)
   }
-  if (gameMode === 'ai' && !gameOver && currentTurn === 'O') {
-    await aiMove()
+  if (gameMode === 'ai' && !gameOver && currentTurn !== mySymbol) {
+    setTimeout(() => aiMove(), 400)
   }
 }
 
@@ -361,7 +403,7 @@ function applyMove(idx, symbol) {
   if (board.every(c => c !== null)) { endGame(null); return; }
   if (gameMode === 'ai') {
     const myTurn = currentTurn === mySymbol
-    updateStatus(myTurn ? 'ตาของคุณ!' : 'AI กำลังคิด...', 'playing')
+    updateStatus(myTurn ? `ตาของ${myName}!` : 'AI กำลังคิด...', 'playing')
   }
 }
 
@@ -380,14 +422,14 @@ function endGame(winner) {
     document.querySelectorAll('.cell').forEach((cell, i) => {
       if (winner.line.includes(i)) cell.classList.add('win-cell')
     })
+    const iWon = winner.symbol === mySymbol
+    const aiName = 'Claude AI'
     if (gameMode === 'ai') {
-      const iWon = winner.symbol === mySymbol
-      updateStatus(iWon ? '🎉 คุณชนะ!' : '🤖 AI ชนะ!', 'win')
-      showToast(iWon ? 'ยอดเยี่ยม! คุณชนะ 🎉' : 'AI ชนะครั้งนี้ ลองใหม่!')
+      updateStatus(iWon ? `🎉 ${myName} ชนะ!` : `🤖 ${aiName} ชนะ!`, 'win')
+      showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : 'AI ชนะครั้งนี้ ลองใหม่!')
     } else {
-      const iWon = winner.symbol === mySymbol
-      updateStatus(iWon ? '🎉 คุณชนะ!' : '😔 คุณแพ้!', 'win')
-      showToast(iWon ? 'ยอดเยี่ยม! คุณชนะ 🎉' : 'เสียใจด้วย ลองใหม่!')
+      updateStatus(iWon ? `🎉 ${myName} ชนะ!` : '😔 คุณแพ้!', 'win')
+      showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : 'เสียใจด้วย ลองใหม่!')
     }
   } else {
     updateStatus('🤝 เสมอกัน!', 'draw')
@@ -404,18 +446,26 @@ function resetGame() {
     cell.className = 'cell'
   })
   if (gameMode === 'ai') {
-    updateStatus('คุณเดินก่อน (✕)', 'playing')
-    document.getElementById('player1Card').classList.add('active')
-    document.getElementById('player2Card').classList.remove('active')
+    const goFirst = Math.random() < 0.5
+    mySymbol = goFirst ? 'X' : 'O'
+    document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : 'Claude AI'
+    document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'Claude AI'
+    updateBoard()
+    if (mySymbol === 'X') {
+      updateStatus(`${myName} เดินก่อน!`, 'playing')
+    } else {
+      updateStatus('AI เดินก่อน...', 'playing')
+      setTimeout(() => aiMove(), 600)
+    }
   } else if (gameMode === 'online') {
     db.from('rooms').update({
-      state: { board, turn: 'X' }, status: 'playing'
+      state: { board, turn: 'X', hostSymbol: mySymbol, hostName: myName },
+      status: 'playing'
     }).eq('id', roomId)
     updateStatus('เกมเริ่มใหม่!', 'playing')
   }
 }
 
-// ===== UI =====
 function updateBoard() {
   const cells = document.querySelectorAll('.cell')
   board.forEach((val, i) => {
