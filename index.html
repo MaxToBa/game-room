@@ -302,15 +302,24 @@ function openGame(id) {
   openModal('gameModal');
 }
 function startGame(mode) {
-  closeModal('gameModal');
+  closeModal('gameModal')
+  const routes = {
+    chess:      '../games/chess.html',
+    tictactoe:  'games/tictactoe.html',
+    uno:        'games/uno.html',
+    battleship: 'games/battleship.html',
+    '2048':     'games/2048.html',
+    gomoku:     'games/gomoku.html',
+  }
+  const url = routes[currentGame]
+  if (!url) { showToast('เกมนี้ยังไม่พร้อม เร็วๆ นี้!'); return; }
+
   if (mode === 'vs-friend') {
-    const code = Math.random().toString(36).substring(2,8).toUpperCase();
-    document.getElementById('roomCode').textContent = code;
-    openModal('roomModal');
+    window.location.href = url + '?mode=create'
   } else if (mode === 'join') {
-    openModal('joinModal');
-  } else {
-    showToast('กำลังโหลด ' + games[currentGame].name + ' vs AI... 🤖');
+    window.location.href = url + '?mode=join'
+  } else if (mode === 'vs-ai') {
+    window.location.href = url + '?mode=ai'
   }
 }
 function joinRoom() {
