@@ -333,7 +333,6 @@ function copyCode() {
   const code = document.getElementById('roomCode').textContent;
   navigator.clipboard.writeText(code).then(() => showToast('คัดลอก ' + code + ' แล้ว! ✓'));
 }
-function openLogin() { openModal('loginModal'); }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(el => {
@@ -356,6 +355,36 @@ document.querySelectorAll('.game-card').forEach((card, i) => {
     card.style.transform = 'translateY(0)';
   }));
 });
+
+// เช็ค login state
+const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+function updateHeader() {
+  const name = localStorage.getItem('playerName')
+  const isGuest = localStorage.getItem('isGuest')
+  const btn = document.querySelector('.user-btn')
+  const leaderboardLink = document.querySelector('a[href="leaderboard.html"]')
+
+  if (name) {
+    btn.textContent = `👤 ${name}`
+    btn.onclick = () => {
+      if (confirm(`ออกจากระบบ (${name}) ไหมครับ?`)) {
+        db.auth.signOut()
+        localStorage.clear()
+        window.location.reload()
+      }
+    }
+  } else {
+    btn.textContent = 'เข้าสู่ระบบ'
+    btn.onclick = () => window.location.href = 'login.html'
+  }
+}
+
+updateHeader()
 </script>
+
 </body>
 </html>
