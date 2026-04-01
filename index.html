@@ -106,7 +106,21 @@
   @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.9); } }
   .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  @media (max-width: 640px) { .game-card.featured { grid-column: span 1; } .hero-title { letter-spacing: -1px; } }
+  /* User widget */
+  .user-widget { position: relative; }
+  .user-profile { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); padding: 5px 14px 5px 5px; border-radius: 999px; cursor: pointer; transition: all 0.2s; user-select: none; }
+  .user-profile:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+  .user-avatar-img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+  .user-avatar-initial { width: 28px; height: 28px; border-radius: 50%; background: var(--accent2); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .user-name { font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+  .user-profile.open .user-chevron { transform: rotate(180deg); }
+  .user-dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border-hover); border-radius: 14px; padding: 6px; min-width: 180px; opacity: 0; pointer-events: none; transform: translateY(-6px); transition: all 0.2s; z-index: 50; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+  .user-dropdown.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+  .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 9px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none; background: transparent; border: none; cursor: pointer; width: 100%; transition: background 0.15s; text-align: left; }
+  .dropdown-item:hover { background: var(--surface2); }
+  .dropdown-item-danger { color: var(--accent3); }
+  @media (max-width: 640px) { .game-card.featured { grid-column: span 1; } .hero-title { letter-spacing: -1px; } .user-name { display: none; } }
 </style>
 </head>
 <body>
@@ -118,7 +132,9 @@
     <div class="header-right">
       <div class="online-badge"><span class="online-dot"></span>247 ออนไลน์</div>
       <a href="leaderboard.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:999px;font-family:var(--font-ui);font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s;">🏆 Leaderboard</a>
-      <button class="user-btn" onclick="openLogin()">เข้าสู่ระบบ</button>
+      <div class="user-widget" id="userWidget">
+        <button class="user-btn" onclick="window.location.href='login.html'">เข้าสู่ระบบ</button>
+      </div>
     </div>
   </header>
   <section class="hero">
@@ -356,34 +372,106 @@ document.querySelectorAll('.game-card').forEach((card, i) => {
   }));
 });
 
-// เช็ค login state
+// Auth + Header
 const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
 const { createClient } = supabase
 const db = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-function updateHeader() {
-  const name = localStorage.getItem('playerName')
-  const isGuest = localStorage.getItem('isGuest')
-  const btn = document.querySelector('.user-btn')
-  const leaderboardLink = document.querySelector('a[href="leaderboard.html"]')
+function buildAvatarHtml(avatarUrl, name) {
+  if (avatarUrl) {
+    return `<img src="${avatarUrl}" class="user-avatar-img" onerror="this.outerHTML='<div class=\\'user-avatar-initial\\'>${name[0].toUpperCase()}</div>'">`
+  }
+  return `<div class="user-avatar-initial">${name[0].toUpperCase()}</div>`
+}
 
-  if (name) {
-    btn.textContent = `👤 ${name}`
-    btn.onclick = () => {
-      if (confirm(`ออกจากระบบ (${name}) ไหมครับ?`)) {
-        db.auth.signOut()
-        localStorage.clear()
-        window.location.reload()
-      }
-    }
+function renderLoggedIn(name, avatarUrl) {
+  const widget = document.getElementById('userWidget')
+  widget.innerHTML = `
+    <div class="user-profile" id="userProfile" onclick="toggleDropdown()">
+      ${buildAvatarHtml(avatarUrl, name)}
+      <span class="user-name">${name}</span>
+      <span class="user-chevron">▾</span>
+    </div>
+    <div class="user-dropdown" id="userDropdown">
+      <a href="profile.html" class="dropdown-item">✏️ แก้ไขโปรไฟล์</a>
+      <button class="dropdown-item dropdown-item-danger" onclick="handleLogout()">🚪 ออกจากระบบ</button>
+    </div>
+  `
+}
+
+function renderGuest(name) {
+  const widget = document.getElementById('userWidget')
+  widget.innerHTML = `
+    <div class="user-profile" id="userProfile" onclick="toggleDropdown()">
+      <div class="user-avatar-initial">${name[0].toUpperCase()}</div>
+      <span class="user-name">${name}</span>
+      <span class="user-chevron">▾</span>
+    </div>
+    <div class="user-dropdown" id="userDropdown">
+      <a href="login.html" class="dropdown-item">🔑 สมัคร / เข้าสู่ระบบ</a>
+      <button class="dropdown-item dropdown-item-danger" onclick="handleLogout()">🚪 ออกจากระบบ</button>
+    </div>
+  `
+}
+
+function renderLoggedOut() {
+  const widget = document.getElementById('userWidget')
+  widget.innerHTML = `<button class="user-btn" onclick="window.location.href='login.html'">เข้าสู่ระบบ</button>`
+}
+
+function updateHeader(session) {
+  if (session) {
+    const meta = session.user.user_metadata || {}
+    const name = meta.full_name?.split(' ')[0] || meta.display_name || session.user.email.split('@')[0]
+    const avatarUrl = meta.avatar_url || null
+    localStorage.setItem('playerName', name)
+    localStorage.setItem('playerEmail', session.user.email)
+    localStorage.setItem('isGuest', 'false')
+    renderLoggedIn(name, avatarUrl)
   } else {
-    btn.textContent = 'เข้าสู่ระบบ'
-    btn.onclick = () => window.location.href = 'login.html'
+    const name = localStorage.getItem('playerName')
+    const isGuest = localStorage.getItem('isGuest')
+    if (name && isGuest === 'true') {
+      renderGuest(name)
+    } else if (name && isGuest === 'false') {
+      // localStorage has name but no session yet — show while waiting
+      renderLoggedIn(name, null)
+    } else {
+      renderLoggedOut()
+    }
   }
 }
 
-updateHeader()
+function toggleDropdown() {
+  const profile = document.getElementById('userProfile')
+  const dropdown = document.getElementById('userDropdown')
+  if (!dropdown) return
+  const isOpen = dropdown.classList.contains('open')
+  dropdown.classList.toggle('open', !isOpen)
+  profile.classList.toggle('open', !isOpen)
+}
+
+document.addEventListener('click', (e) => {
+  const widget = document.getElementById('userWidget')
+  if (widget && !widget.contains(e.target)) {
+    const dropdown = document.getElementById('userDropdown')
+    const profile = document.getElementById('userProfile')
+    if (dropdown) dropdown.classList.remove('open')
+    if (profile) profile.classList.remove('open')
+  }
+})
+
+async function handleLogout() {
+  await db.auth.signOut()
+  localStorage.clear()
+  window.location.reload()
+}
+
+// onAuthStateChange เป็น source of truth หลัก — fires ทันทีที่โหลดหน้าและหลัง OAuth redirect
+db.auth.onAuthStateChange((event, session) => {
+  updateHeader(session)
+})
 </script>
 
 </body>
