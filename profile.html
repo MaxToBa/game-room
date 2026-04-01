@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>โปรไฟล์ — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 500px; height: 500px; background: rgba(124,106,245,0.12); top: -150px; right: -100px; }
+  .blob-2 { width: 400px; height: 400px; background: rgba(232,197,71,0.07); bottom: 0; left: -100px; }
+  .card { position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 48px 40px; width: 100%; max-width: 440px; text-align: center; animation: fadeUp 0.5s ease both; }
+  .avatar-wrap { width: 80px; height: 80px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 32px; font-weight: 700; color: #fff; margin: 0 auto 24px; overflow: hidden; }
+  .avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .name { font-family: var(--font-display); font-size: 28px; margin-bottom: 6px; }
+  .email { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .coming-soon { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
+  .coming-soon-icon { font-size: 36px; margin-bottom: 12px; }
+  .coming-soon-title { font-family: var(--font-ui); font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+  .coming-soon-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .back-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-size: 14px; font-weight: 600; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="card">
+  <div class="avatar-wrap" id="avatarEl">?</div>
+  <div class="name" id="nameEl">กำลังโหลด...</div>
+  <div class="email" id="emailEl"></div>
+  <div class="coming-soon">
+    <div class="coming-soon-icon">🚧</div>
+    <div class="coming-soon-title">เร็วๆ นี้</div>
+    <div class="coming-soon-text">หน้าแก้ไขโปรไฟล์กำลังพัฒนา<br>จะสามารถเปลี่ยนชื่อและรูปได้เร็วๆ นี้</div>
+  </div>
+  <a href="/" class="back-btn">← กลับหน้าหลัก</a>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
+const { createClient } = supabase
+const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+db.auth.getSession().then(({ data }) => {
+  const session = data.session
+  if (session) {
+    const meta = session.user.user_metadata || {}
+    const name = meta.full_name?.split(' ')[0] || meta.display_name || session.user.email.split('@')[0]
+    const avatarUrl = meta.avatar_url || null
+    const avatarEl = document.getElementById('avatarEl')
+    if (avatarUrl) {
+      avatarEl.innerHTML = `<img src="${avatarUrl}">`
+    } else {
+      avatarEl.textContent = name[0].toUpperCase()
+    }
+    document.getElementById('nameEl').textContent = name
+    document.getElementById('emailEl').textContent = session.user.email
+  } else {
+    const name = localStorage.getItem('playerName')
+    if (name) {
+      document.getElementById('avatarEl').textContent = name[0].toUpperCase()
+      document.getElementById('nameEl').textContent = name
+      document.getElementById('emailEl').textContent = 'ผู้เยี่ยมชม'
+    } else {
+      window.location.href = '/'
+    }
+  }
+})
+</script>
+</body>
+</html>
