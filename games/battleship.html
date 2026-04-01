@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battleship — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e; --red: #f05a5a;
+    --water: #1a2a3a; --hit: #f05a5a; --miss: #2a3a4a; --ship: #3a4a5a;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; flex-direction: column; align-items: center; padding: 32px 16px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 400px; height: 400px; background: rgba(26,42,58,0.4); top: -100px; right: -100px; }
+  .blob-2 { width: 300px; height: 300px; background: rgba(79,207,142,0.05); bottom: 0; left: -80px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .game-title { font-family: var(--font-display); font-size: 24px; }
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+  .status-text { font-size: 15px; font-weight: 600; }
+  .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .badge-waiting { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-placing { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .badge-win { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-lose { background: rgba(240,90,90,0.15); color: var(--red); }
+  .players-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; text-align: center; transition: all 0.3s; }
+  .player-card.active { border-color: var(--accent2); box-shadow: 0 0 20px rgba(124,106,245,0.2); }
+  .player-name { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-hp { font-family: var(--font-display); font-size: 20px; margin-top: 4px; }
+  .vs-text { font-family: var(--font-display); font-size: 18px; color: var(--muted); text-align: center; }
+  .player-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: #fff; margin: 0 auto 6px; overflow: hidden; flex-shrink: 0; }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .player-card.active .player-avatar { box-shadow: 0 0 0 2px var(--accent2); }
+
+  /* Grid styles */
+  .grid-section { margin-bottom: 20px; }
+  .grid-label { font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .grid-label span { color: var(--text); }
+  .grid-wrap { overflow-x: auto; }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; min-width: 300px; }
+  .cell {
+    aspect-ratio: 1;
+    background: var(--water);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 4px;
+    cursor: default;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    user-select: none;
+  }
+  .cell.ship { background: var(--ship); border-color: rgba(255,255,255,0.1); }
+  .cell.hit { background: var(--hit); border-color: rgba(240,90,90,0.5); animation: hitPop 0.3s ease; }
+  .cell.miss { background: var(--miss); }
+  .cell.miss::after { content: '·'; color: rgba(255,255,255,0.3); font-size: 18px; line-height: 1; }
+  .cell.sunk { background: #4a1a1a; border-color: var(--red); }
+  .cell.preview { background: rgba(124,106,245,0.3); border-color: var(--accent2); cursor: crosshair; }
+  .cell.preview-invalid { background: rgba(240,90,90,0.3); border-color: var(--red); cursor: not-allowed; }
+  .enemy-grid .cell:not(.hit):not(.miss):not(.sunk) { cursor: crosshair; }
+  .enemy-grid .cell:not(.hit):not(.miss):not(.sunk):hover { background: rgba(255,255,255,0.08); transform: scale(1.1); }
+  .enemy-grid.disabled .cell { cursor: default; }
+  .enemy-grid.disabled .cell:hover { background: var(--water); transform: none; }
+
+  /* Ship placement toolbar */
+  .ships-toolbar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  .toolbar-title { font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .ships-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ship-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 10px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .ship-btn:hover:not(.placed) { border-color: var(--border-hover); }
+  .ship-btn.selected { border-color: var(--accent2); background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .ship-btn.placed { opacity: 0.4; cursor: default; text-decoration: line-through; }
+  .rotate-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--accent); padding: 8px 14px; border-radius: 10px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .rotate-btn:hover { border-color: var(--accent); }
+  .toolbar-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* Action buttons */
+  .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 14px; border-radius: 14px; font-family: var(--font-ui); font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
+  .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); transform: translateY(-1px); }
+  .action-btn.danger { background: var(--red); }
+  .action-btn.danger:hover { background: #ff7070; }
+  .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Setup, name screens */
+  .setup-screen { text-align: center; padding: 20px 0; }
+  .setup-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 8px; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-options { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .mode-card-sub { font-size: 13px; color: var(--muted); }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
+  .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+  .room-code-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 4px; }
+  .room-code-text { font-family: var(--font-display); font-size: 24px; letter-spacing: 4px; color: var(--accent); }
+  .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
+  .copy-code-btn:hover { border-color: var(--border-hover); }
+  .ai-thinking { display: none; align-items: center; gap: 10px; justify-content: center; padding: 12px; color: var(--muted); font-size: 14px; font-family: var(--font-ui); }
+  .ai-thinking.show { display: flex; }
+  .dot-pulse { display: flex; gap: 4px; }
+  .dot-pulse span { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes hitPop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+  @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="container">
+  <div class="top-bar">
+    <a href="../index.html" class="back-btn">← กลับ</a>
+    <div class="game-title">⚓ Battleship</div>
+    <div style="width:80px"></div>
+  </div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen fade-in">
+    <div class="setup-title">เลือกโหมด</div>
+    <div class="setup-sub">วางเรือ ยิงถล่ม ชนะให้ได้!</div>
+    <div class="setup-options">
+      <div class="mode-card" onclick="showNameScreen('ai')">
+        <div class="mode-card-title">🤖 เล่นกับ AI</div>
+        <div class="mode-card-sub">ยิงสู้กับ AI อัจฉริยะ</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('create')">
+        <div class="mode-card-title">👥 สร้างห้องเชิญเพื่อน</div>
+        <div class="mode-card-sub">สร้าง room code แล้วส่งให้เพื่อน</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('join')">
+        <div class="mode-card-title">🔑 เข้าร่วมห้อง</div>
+        <div class="mode-card-sub">มี room code จากเพื่อนแล้ว กรอกเพื่อเข้าเลย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Name Screen -->
+  <div id="nameScreen" style="display:none" class="name-screen fade-in">
+    <div class="setup-title" style="margin-bottom:8px;text-align:center">ใส่ชื่อของคุณ</div>
+    <div class="setup-sub" style="text-align:center">ชื่อนี้จะแสดงให้เพื่อนเห็น</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="nameInput" placeholder="เช่น MaxToBa" maxlength="16">
+    </div>
+    <div id="joinCodeGroup" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Room Code</label>
+        <input class="form-input code-input" id="joinInput" placeholder="AB3X9K" maxlength="6">
+      </div>
+    </div>
+    <button class="action-btn" onclick="handleNameNext()">ถัดไป →</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Placement Screen -->
+  <div id="placementScreen" style="display:none" class="fade-in">
+    <div class="setup-title" style="text-align:center;margin-bottom:8px">วางเรือ</div>
+    <div class="setup-sub" style="text-align:center;margin-bottom:20px">วางเรือทุกลำก่อนเริ่มเกม</div>
+    <div class="ships-toolbar">
+      <div class="toolbar-title">เรือที่ต้องวาง</div>
+      <div class="ships-list" id="shipsList"></div>
+      <div class="toolbar-actions">
+        <button class="rotate-btn" onclick="toggleRotation()">🔄 หมุน (<span id="orientLabel">แนวนอน</span>)</button>
+        <button class="action-btn secondary" style="width:auto;margin:0;padding:8px 14px;font-size:13px" onclick="autoPlace()">⚡ วางอัตโนมัติ</button>
+        <button class="action-btn secondary" style="width:auto;margin:0;padding:8px 14px;font-size:13px" onclick="clearPlacement()">🗑 ล้างทั้งหมด</button>
+      </div>
+    </div>
+    <div class="grid-section">
+      <div class="grid-label">กริดของคุณ <span id="placedCount">0/5 ลำ</span></div>
+      <div class="grid-wrap">
+        <div class="grid" id="myPlacementGrid"></div>
+      </div>
+    </div>
+    <button class="action-btn" id="startGameBtn" onclick="confirmPlacement()" disabled>เริ่มเกม →</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Waiting Screen (online only) -->
+  <div id="waitingScreen" style="display:none" class="fade-in">
+    <div class="room-info">
+      <div>
+        <div class="room-code-label">Room Code</div>
+        <div class="room-code-text" id="waitRoomCode">—</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
+    </div>
+    <div style="text-align:center;padding:40px 0">
+      <div style="font-size:48px;margin-bottom:16px">⏳</div>
+      <div style="font-family:var(--font-display);font-size:24px;margin-bottom:8px">รอผู้เล่นคนที่ 2</div>
+      <div style="color:var(--muted);font-size:14px">ส่ง room code ให้เพื่อนแล้วรอเลย</div>
+      <div class="ai-thinking show" style="justify-content:center;margin-top:20px">
+        <div class="dot-pulse"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" style="display:none" class="fade-in">
+    <div class="room-info" id="roomInfo" style="display:none">
+      <div>
+        <div class="room-code-label">Room Code</div>
+        <div class="room-code-text" id="roomCodeDisplay">—</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
+    </div>
+    <div class="status-bar">
+      <div class="status-text" id="statusText">กำลังโหลด...</div>
+      <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
+    </div>
+    <div class="players-bar">
+      <div class="player-card" id="player1Card">
+        <div class="player-avatar" id="player1Avatar"><span>?</span></div>
+        <div class="player-name" id="player1Name">ผู้เล่น 1</div>
+        <div class="player-hp" id="player1HP">🚢🚢🚢🚢🚢</div>
+      </div>
+      <div class="vs-text">vs</div>
+      <div class="player-card" id="player2Card">
+        <div class="player-avatar" id="player2Avatar"><span>?</span></div>
+        <div class="player-name" id="player2Name">ผู้เล่น 2</div>
+        <div class="player-hp" id="player2HP">🚢🚢🚢🚢🚢</div>
+      </div>
+    </div>
+
+    <!-- Enemy grid (attack here) -->
+    <div class="grid-section">
+      <div class="grid-label">กริดศัตรู — คลิกเพื่อยิง! <span id="enemyHitsLabel">0/17 โดน</span></div>
+      <div class="grid-wrap">
+        <div class="grid enemy-grid disabled" id="enemyGrid"></div>
+      </div>
+    </div>
+
+    <!-- My grid (show my ships) -->
+    <div class="grid-section">
+      <div class="grid-label">กริดของคุณ <span id="myHitsLabel">0/17 โดน</span></div>
+      <div class="grid-wrap">
+        <div class="grid" id="myGrid"></div>
+      </div>
+    </div>
+
+    <div class="ai-thinking" id="aiThinking">
+      <span>AI กำลังคิด</span>
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+    </div>
+    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:8px">🔄 เล่นใหม่</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// db comes from ../js/supabase.js
+
+// ---- Ship definitions ----
+const SHIP_DEFS = [
+  { id: 'carrier',    name: 'Carrier',    size: 5, emoji: '🛳' },
+  { id: 'battleship', name: 'Battleship', size: 4, emoji: '⛴' },
+  { id: 'cruiser',    name: 'Cruiser',    size: 3, emoji: '🚢' },
+  { id: 'submarine',  name: 'Submarine',  size: 3, emoji: '🤿' },
+  { id: 'destroyer',  name: 'Destroyer',  size: 2, emoji: '⚓' },
+]
+const TOTAL_HITS = SHIP_DEFS.reduce((s, d) => s + d.size, 0) // 17
+
+// ---- State ----
+let myName = ''
+let myAvatarUrl = null
+let gameMode = null   // 'ai' | 'create' | 'join'
+let roomId = null
+let isHost = false
+let realtimeChannel = null
+let pendingMode = null
+let gameOver = false
+
+// Placement state
+let myShips = []       // array of {id, cells:[idx], horizontal}
+let placedIds = new Set()
+let selectedShip = null
+let isHorizontal = true
+let previewCells = []
+
+// Game state
+let myBoard = Array(100).fill(null)       // null | 'ship' | 'hit' | 'miss'
+let enemyBoard = Array(100).fill(null)    // null | 'hit' | 'miss' | 'sunk'
+let myHits = 0      // how many of my ships have been hit
+let enemyHits = 0   // how many enemy ships I've hit
+let isMyTurn = false
+let enemyName = 'ผู้เล่น 2'
+let enemyAvatarUrl = null
+
+// AI hunt/target mode
+let aiLastHit = null
+let aiHuntStack = []
+
+// ---- Profile ----
+async function loadMyProfile() {
+  try {
+    const { data } = await db.auth.getSession()
+    if (data.session) {
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0]
+      myAvatarUrl = meta.avatar_url || null
+      const { data: profile } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle()
+      const name = profile?.username || defaultName
+      if (profile?.avatar_url) myAvatarUrl = profile.avatar_url
+      document.getElementById('nameInput').value = name
+      return
+    }
+  } catch (_) {}
+  const saved = localStorage.getItem('playerName')
+  if (saved) document.getElementById('nameInput').value = saved
+}
+
+function setAvatar(elId, url, name) {
+  const el = document.getElementById(elId)
+  if (!el) return
+  const initial = (name || '?')[0].toUpperCase()
+  el.innerHTML = url
+    ? `<img src="${url}" alt="${initial}" onerror="this.parentElement.innerHTML='<span>${initial}</span>'">`
+    : `<span>${initial}</span>`
+}
+
+// ---- Screen management ----
+function showScreen(id) {
+  ['setupScreen','nameScreen','placementScreen','waitingScreen','gameScreen'].forEach(s => {
+    document.getElementById(s).style.display = 'none'
+  })
+  document.getElementById(id).style.display = 'block'
+}
+
+function showNameScreen(mode) {
+  pendingMode = mode
+  document.getElementById('joinCodeGroup').style.display = mode === 'join' ? 'block' : 'none'
+  document.getElementById('nameInput').value = ''
+  document.getElementById('joinInput').value = ''
+  showScreen('nameScreen')
+  loadMyProfile()
+}
+
+function handleNameNext() {
+  const name = document.getElementById('nameInput').value.trim()
+  if (!name) { showToast('กรุณาใส่ชื่อก่อนนะครับ'); return }
+  myName = name
+  gameMode = pendingMode
+  if (pendingMode === 'join') {
+    const code = document.getElementById('joinInput').value.trim().toUpperCase()
+    if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return }
+    roomId = code
+    isHost = false
+  } else if (pendingMode === 'create') {
+    roomId = Math.random().toString(36).substring(2, 8).toUpperCase()
+    isHost = true
+  } else {
+    isHost = true
+  }
+  showPlacementScreen()
+}
+
+// ---- Ship Placement ----
+function showPlacementScreen() {
+  clearPlacement()
+  buildShipsList()
+  buildPlacementGrid()
+  showScreen('placementScreen')
+}
+
+function buildShipsList() {
+  const el = document.getElementById('shipsList')
+  el.innerHTML = ''
+  SHIP_DEFS.forEach(def => {
+    const btn = document.createElement('button')
+    btn.className = 'ship-btn'
+    btn.id = `ship-btn-${def.id}`
+    btn.onclick = () => selectShip(def.id)
+    btn.innerHTML = `${def.emoji} ${def.name} (${def.size})`
+    el.appendChild(btn)
+  })
+}
+
+function buildPlacementGrid() {
+  const grid = document.getElementById('myPlacementGrid')
+  grid.innerHTML = ''
+  for (let i = 0; i < 100; i++) {
+    const cell = document.createElement('div')
+    cell.className = 'cell'
+    cell.dataset.idx = i
+    cell.addEventListener('mouseenter', () => showPreview(i))
+    cell.addEventListener('mouseleave', clearPreview)
+    cell.addEventListener('click', () => placeShipAt(i))
+    grid.appendChild(cell)
+  }
+}
+
+function selectShip(id) {
+  if (placedIds.has(id)) return
+  selectedShip = id
+  document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('selected'))
+  const btn = document.getElementById(`ship-btn-${id}`)
+  if (btn) btn.classList.add('selected')
+}
+
+function toggleRotation() {
+  isHorizontal = !isHorizontal
+  document.getElementById('orientLabel').textContent = isHorizontal ? 'แนวนอน' : 'แนวตั้ง'
+}
+
+function getPreviewCells(anchor, shipId, horizontal) {
+  const def = SHIP_DEFS.find(d => d.id === shipId)
+  if (!def) return null
+  const size = def.size
+  const row = Math.floor(anchor / 10)
+  const col = anchor % 10
+  const cells = []
+  for (let i = 0; i < size; i++) {
+    const r = horizontal ? row : row + i
+    const c = horizontal ? col + i : col
+    if (r >= 10 || c >= 10) return null
+    cells.push(r * 10 + c)
+  }
+  // Check overlap with existing ships
+  const occupied = new Set(myShips.flatMap(s => s.cells))
+  for (const idx of cells) {
+    if (occupied.has(idx)) return null // overlap
+  }
+  return cells
+}
+
+function showPreview(anchor) {
+  clearPreview()
+  if (!selectedShip || placedIds.has(selectedShip)) return
+  const cells = getPreviewCells(anchor, selectedShip, isHorizontal)
+  const grid = document.getElementById('myPlacementGrid')
+  if (!cells) {
+    // show invalid preview — try to show at least 1 cell
+    grid.children[anchor].classList.add('preview-invalid')
+    previewCells = [anchor]
+  } else {
+    cells.forEach(idx => grid.children[idx].classList.add('preview'))
+    previewCells = cells
+  }
+}
+
+function clearPreview() {
+  const grid = document.getElementById('myPlacementGrid')
+  previewCells.forEach(idx => {
+    if (grid.children[idx]) {
+      grid.children[idx].classList.remove('preview', 'preview-invalid')
+    }
+  })
+  previewCells = []
+}
+
+function placeShipAt(anchor) {
+  if (!selectedShip || placedIds.has(selectedShip)) return
+  const cells = getPreviewCells(anchor, selectedShip, isHorizontal)
+  if (!cells) { showToast('วางที่นี่ไม่ได้'); return }
+  const def = SHIP_DEFS.find(d => d.id === selectedShip)
+  myShips.push({ id: selectedShip, cells, horizontal: isHorizontal, size: def.size, hits: 0 })
+  placedIds.add(selectedShip)
+  // Mark cells on grid
+  const grid = document.getElementById('myPlacementGrid')
+  cells.forEach(idx => {
+    grid.children[idx].classList.remove('preview', 'preview-invalid')
+    grid.children[idx].classList.add('ship')
+    grid.children[idx].title = def.name
+  })
+  document.getElementById(`ship-btn-${selectedShip}`)?.classList.add('placed')
+  selectedShip = null
+  document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('selected'))
+  // Update count
+  document.getElementById('placedCount').textContent = `${placedIds.size}/5 ลำ`
+  if (placedIds.size === SHIP_DEFS.length) {
+    document.getElementById('startGameBtn').disabled = false
+  }
+}
+
+function autoPlace() {
+  clearPlacement()
+  const ids = SHIP_DEFS.map(d => d.id)
+  for (const id of ids) {
+    let placed = false
+    let tries = 0
+    while (!placed && tries < 200) {
+      tries++
+      const anchor = Math.floor(Math.random() * 100)
+      const horizontal = Math.random() < 0.5
+      const cells = getPreviewCells(anchor, id, horizontal)
+      if (cells) {
+        const def = SHIP_DEFS.find(d => d.id === id)
+        myShips.push({ id, cells, horizontal, size: def.size, hits: 0 })
+        placedIds.add(id)
+        placed = true
+      }
+    }
+  }
+  // Refresh grid
+  const grid = document.getElementById('myPlacementGrid')
+  myShips.forEach(ship => {
+    const def = SHIP_DEFS.find(d => d.id === ship.id)
+    ship.cells.forEach(idx => {
+      grid.children[idx].classList.add('ship')
+      grid.children[idx].title = def.name
+    })
+    document.getElementById(`ship-btn-${ship.id}`)?.classList.add('placed')
+  })
+  document.getElementById('placedCount').textContent = `${placedIds.size}/5 ลำ`
+  if (placedIds.size === SHIP_DEFS.length) {
+    document.getElementById('startGameBtn').disabled = false
+  }
+}
+
+function clearPlacement() {
+  myShips = []
+  placedIds.clear()
+  selectedShip = null
+  isHorizontal = true
+  previewCells = []
+  document.getElementById('orientLabel').textContent = 'แนวนอน'
+  buildPlacementGrid()
+  buildShipsList()
+  document.getElementById('placedCount').textContent = '0/5 ลำ'
+  document.getElementById('startGameBtn').disabled = true
+}
+
+function confirmPlacement() {
+  if (placedIds.size < SHIP_DEFS.length) { showToast('วางเรือยังไม่ครบ'); return }
+  // Build myBoard
+  myBoard = Array(100).fill(null)
+  myShips.forEach(ship => {
+    ship.cells.forEach(idx => { myBoard[idx] = 'ship' })
+  })
+  if (gameMode === 'ai') {
+    startVsAI()
+  } else if (gameMode === 'create') {
+    startOnlineGame(roomId, true)
+  } else {
+    startOnlineGame(roomId, false)
+  }
+}
+
+// ---- VS AI ----
+function startVsAI() {
+  enemyName = 'AI'
+  enemyAvatarUrl = null
+  isMyTurn = true
+  enemyHits = 0
+  myHits = 0
+  gameOver = false
+  aiLastHit = null
+  aiHuntStack = []
+
+  // AI places ships randomly
+  aiShips = []
+  const aiPlaced = new Set()
+  const aiBoard_ships = []
+  for (const def of SHIP_DEFS) {
+    let placed = false
+    let tries = 0
+    while (!placed && tries < 300) {
+      tries++
+      const anchor = Math.floor(Math.random() * 100)
+      const horizontal = Math.random() < 0.5
+      const cells = getPreviewCellsGeneric(aiBoard_ships, anchor, def.size, horizontal)
+      if (cells) {
+        aiBoard_ships.push(...cells)
+        aiShips.push({ id: def.id, cells, size: def.size, hits: 0 })
+        placed = true
+      }
+    }
+  }
+  // Build enemy board (hidden - just track ship positions)
+  enemyBoard = Array(100).fill(null)
+  aiShipCells = new Set(aiShips.flatMap(s => s.cells))
+
+  buildGameGrids()
+  showScreen('gameScreen')
+  document.getElementById('roomInfo').style.display = 'none'
+  setStatus('ตาของคุณ — เลือกยิง!', 'badge-playing')
+  setActiveTurn(true)
+  document.getElementById('player1Name').textContent = myName
+  document.getElementById('player2Name').textContent = 'AI'
+  setAvatar('player1Avatar', myAvatarUrl, myName)
+  setAvatar('player2Avatar', null, 'AI')
+  updateHP()
+  renderMyGrid()
+  enableEnemyGrid(true)
+}
+
+// Generic helper for AI ship placement (doesn't rely on myShips state)
+function getPreviewCellsGeneric(occupiedCells, anchor, size, horizontal) {
+  const row = Math.floor(anchor / 10)
+  const col = anchor % 10
+  const cells = []
+  for (let i = 0; i < size; i++) {
+    const r = horizontal ? row : row + i
+    const c = horizontal ? col + i : col
+    if (r >= 10 || c >= 10) return null
+    cells.push(r * 10 + c)
+  }
+  for (const idx of cells) {
+    if (occupiedCells.includes(idx)) return null
+  }
+  return cells
+}
+
+let aiShips = []
+let aiShipCells = new Set()
+
+// ---- Online Multiplayer ----
+function startOnlineGame(code, hosting) {
+  roomId = code
+  isHost = hosting
+  realtimeChannel?.unsubscribe()
+
+  // Show waiting screen for host
+  if (hosting) {
+    document.getElementById('waitRoomCode').textContent = code
+    showScreen('waitingScreen')
+  }
+
+  realtimeChannel = db.channel(`battleship:${code}`)
+    .on('broadcast', { event: 'state' }, ({ payload }) => handleOnlineState(payload))
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        if (!hosting) {
+          // Guest: announce join
+          await realtimeChannel.send({
+            type: 'broadcast', event: 'state',
+            payload: { type: 'join', name: myName, avatar: myAvatarUrl }
+          })
+        }
+      }
+    })
+}
+
+async function handleOnlineState(payload) {
+  if (payload.type === 'join' && isHost) {
+    // Guest joined, show their name
+    enemyName = payload.name || 'ผู้เล่น 2'
+    enemyAvatarUrl = payload.avatar || null
+    // Send back host info + start placement signal
+    await realtimeChannel.send({
+      type: 'broadcast', event: 'state',
+      payload: { type: 'hostInfo', name: myName, avatar: myAvatarUrl }
+    })
+    showToast(`${enemyName} เข้าร่วมแล้ว!`)
+  }
+  if (payload.type === 'hostInfo' && !isHost) {
+    enemyName = payload.name || 'ผู้เล่น 1'
+    enemyAvatarUrl = payload.avatar || null
+    // Both go to placement
+    showPlacementScreen()
+  }
+  if (payload.type === 'ready') {
+    // Both players placed ships — start game
+    if (isHost) {
+      enemyName = payload.name || enemyName
+      enemyAvatarUrl = payload.avatar || enemyAvatarUrl
+      // Host goes first
+      initOnlineGame(true)
+      await realtimeChannel.send({
+        type: 'broadcast', event: 'state',
+        payload: { type: 'start', hostGoesFirst: true }
+      })
+    }
+  }
+  if (payload.type === 'start') {
+    if (!isHost) initOnlineGame(!payload.hostGoesFirst)
+  }
+  if (payload.type === 'shot') {
+    receiveShot(payload.idx)
+  }
+  if (payload.type === 'result') {
+    applyMyBoardResult(payload.idx, payload.result, payload.sunkId)
+  }
+}
+
+async function sendReady() {
+  await realtimeChannel.send({
+    type: 'broadcast', event: 'state',
+    payload: { type: 'ready', name: myName, avatar: myAvatarUrl }
+  })
+  showToast('วางเรือเสร็จแล้ว รอคู่ต่อสู้...')
+}
+
+function initOnlineGame(myGoFirst) {
+  isMyTurn = myGoFirst
+  enemyHits = 0
+  myHits = 0
+  gameOver = false
+
+  buildGameGrids()
+  showScreen('gameScreen')
+  document.getElementById('roomInfo').style.display = 'flex'
+  document.getElementById('roomCodeDisplay').textContent = roomId
+
+  document.getElementById('player1Name').textContent = isHost ? myName : enemyName
+  document.getElementById('player2Name').textContent = isHost ? enemyName : myName
+  setAvatar('player1Avatar', isHost ? myAvatarUrl : enemyAvatarUrl, isHost ? myName : enemyName)
+  setAvatar('player2Avatar', isHost ? enemyAvatarUrl : myAvatarUrl, isHost ? enemyName : myName)
+  updateHP()
+  renderMyGrid()
+  setActiveTurn(isMyTurn)
+  setStatus(isMyTurn ? 'ตาของคุณ — เลือกยิง!' : `รอ ${enemyName} ยิง`, isMyTurn ? 'badge-playing' : 'badge-waiting')
+  enableEnemyGrid(isMyTurn)
+}
+
+// ---- Game Grids ----
+function buildGameGrids() {
+  buildGrid('enemyGrid', false)
+  buildGrid('myGrid', true)
+}
+
+function buildGrid(id, isOwn) {
+  const grid = document.getElementById(id)
+  grid.innerHTML = ''
+  for (let i = 0; i < 100; i++) {
+    const cell = document.createElement('div')
+    cell.className = 'cell'
+    cell.dataset.idx = i
+    if (!isOwn) cell.addEventListener('click', () => attackCell(i))
+    grid.appendChild(cell)
+  }
+}
+
+function renderMyGrid() {
+  const grid = document.getElementById('myGrid')
+  for (let i = 0; i < 100; i++) {
+    const cell = grid.children[i]
+    cell.className = 'cell'
+    if (myBoard[i] === 'ship') cell.classList.add('ship')
+    if (myBoard[i] === 'hit') cell.classList.add('hit')
+    if (myBoard[i] === 'miss') cell.classList.add('miss')
+    if (myBoard[i] === 'sunk') cell.classList.add('sunk')
+  }
+}
+
+function renderEnemyGrid() {
+  const grid = document.getElementById('enemyGrid')
+  for (let i = 0; i < 100; i++) {
+    const cell = grid.children[i]
+    cell.className = 'cell'
+    if (enemyBoard[i] === 'hit') cell.classList.add('hit')
+    if (enemyBoard[i] === 'miss') cell.classList.add('miss')
+    if (enemyBoard[i] === 'sunk') cell.classList.add('sunk')
+  }
+}
+
+function enableEnemyGrid(enabled) {
+  const grid = document.getElementById('enemyGrid')
+  if (enabled) grid.classList.remove('disabled')
+  else grid.classList.add('disabled')
+}
+
+function setActiveTurn(isMe) {
+  document.getElementById('player1Card').classList.toggle('active', isHost ? isMe : !isMe)
+  document.getElementById('player2Card').classList.toggle('active', isHost ? !isMe : isMe)
+}
+
+function updateHP() {
+  const totalShips = SHIP_DEFS.length
+  const myAlive = myShips.filter(s => s.hits < s.size).length
+  const enemyAlive = gameMode === 'ai'
+    ? aiShips.filter(s => s.hits < s.size).length
+    : totalShips // online: approximate by unconfirmed sunk count
+  document.getElementById('player1HP').textContent = '🚢'.repeat(isHost ? myAlive : enemyAlive) || '💀'
+  document.getElementById('player2HP').textContent = '🚢'.repeat(isHost ? enemyAlive : myAlive) || '💀'
+  document.getElementById('myHitsLabel').textContent = `${myHits}/17 โดน`
+  document.getElementById('enemyHitsLabel').textContent = `${enemyHits}/17 โดน`
+}
+
+// ---- Attack Logic ----
+function attackCell(idx) {
+  if (!isMyTurn || gameOver) return
+  if (enemyBoard[idx] !== null) { showToast('ยิงไปแล้ว!'); return }
+
+  if (gameMode === 'ai') {
+    // Local resolution
+    const isHit = aiShipCells.has(idx)
+    let sunkId = null
+    if (isHit) {
+      enemyHits++
+      enemyBoard[idx] = 'hit'
+      // Check sunk
+      for (const ship of aiShips) {
+        if (ship.cells.includes(idx)) {
+          ship.hits++
+          if (ship.hits >= ship.size) {
+            sunkId = ship.id
+            ship.cells.forEach(c => { enemyBoard[c] = 'sunk' })
+          }
+          break
+        }
+      }
+    } else {
+      enemyBoard[idx] = 'miss'
+    }
+    renderEnemyGrid()
+    updateHP()
+    const label = document.getElementById('enemyHitsLabel')
+    label.textContent = `${enemyHits}/17 โดน`
+
+    if (enemyHits >= TOTAL_HITS) {
+      endGame(true)
+      return
+    }
+
+    isMyTurn = false
+    setActiveTurn(false)
+    setStatus(`AI กำลังยิงกลับ...`, 'badge-waiting')
+    enableEnemyGrid(false)
+    setTimeout(doAIShot, 800)
+  } else {
+    // Online: send shot to opponent
+    isMyTurn = false
+    setActiveTurn(false)
+    enableEnemyGrid(false)
+    setStatus(`รอผล...`, 'badge-waiting')
+    realtimeChannel.send({
+      type: 'broadcast', event: 'state',
+      payload: { type: 'shot', idx }
+    })
+  }
+}
+
+// ---- Online: receive shot on my board ----
+function receiveShot(idx) {
+  if (gameOver) return
+  const isHit = myBoard[idx] === 'ship'
+  let sunkId = null
+  if (isHit) {
+    myHits++
+    myBoard[idx] = 'hit'
+    for (const ship of myShips) {
+      if (ship.cells.includes(idx)) {
+        ship.hits++
+        if (ship.hits >= ship.size) {
+          sunkId = ship.id
+          ship.cells.forEach(c => { myBoard[c] = 'sunk' })
+        }
+        break
+      }
+    }
+  } else {
+    myBoard[idx] = 'miss'
+  }
+  renderMyGrid()
+  updateHP()
+  // Send result back
+  realtimeChannel.send({
+    type: 'broadcast', event: 'state',
+    payload: { type: 'result', idx, result: isHit ? (sunkId ? 'sunk' : 'hit') : 'miss', sunkId }
+  })
+  if (myHits >= TOTAL_HITS) {
+    endGame(false)
+    return
+  }
+  // My turn now
+  isMyTurn = true
+  setActiveTurn(true)
+  setStatus('ตาของคุณ — เลือกยิง!', 'badge-playing')
+  enableEnemyGrid(true)
+}
+
+// ---- Online: receive result of my shot ----
+function applyMyBoardResult(idx, result, sunkId) {
+  if (result === 'hit' || result === 'sunk') {
+    enemyHits++
+    enemyBoard[idx] = result === 'sunk' ? 'sunk' : 'hit'
+    showToast(result === 'sunk' ? '💥 จมแล้ว!' : '🎯 โดน!')
+  } else {
+    enemyBoard[idx] = 'miss'
+    showToast('💨 พลาด')
+  }
+  renderEnemyGrid()
+  updateHP()
+  if (enemyHits >= TOTAL_HITS) {
+    endGame(true)
+    return
+  }
+  // Opponent's turn
+  setStatus(`รอ ${enemyName} ยิง`, 'badge-waiting')
+  setActiveTurn(false)
+}
+
+// ---- AI Logic ----
+function doAIShot() {
+  if (gameOver) return
+  let idx
+  if (aiHuntStack.length > 0) {
+    // Target mode: shoot adjacent to last hit
+    idx = aiHuntStack.pop()
+    while (idx !== undefined && myBoard[idx] !== null && myBoard[idx] !== 'ship') {
+      idx = aiHuntStack.pop()
+    }
+  }
+  if (idx === undefined || myBoard[idx] === null || myBoard[idx] === 'miss' || myBoard[idx] === 'hit' || myBoard[idx] === 'sunk') {
+    // Hunt mode: random untried cell
+    const untried = []
+    for (let i = 0; i < 100; i++) {
+      if (myBoard[i] === null || myBoard[i] === 'ship') untried.push(i)
+    }
+    if (untried.length === 0) { endGame(true); return }
+    idx = untried[Math.floor(Math.random() * untried.length)]
+  }
+
+  const isHit = myBoard[idx] === 'ship'
+  let sunkId = null
+  if (isHit) {
+    myHits++
+    myBoard[idx] = 'hit'
+    aiLastHit = idx
+    // Queue adjacent cells
+    const row = Math.floor(idx / 10), col = idx % 10
+    const adj = []
+    if (row > 0) adj.push(idx - 10)
+    if (row < 9) adj.push(idx + 10)
+    if (col > 0) adj.push(idx - 1)
+    if (col < 9) adj.push(idx + 1)
+    adj.forEach(a => { if (myBoard[a] === null || myBoard[a] === 'ship') aiHuntStack.push(a) })
+    // Check sunk
+    for (const ship of myShips) {
+      if (ship.cells.includes(idx)) {
+        ship.hits++
+        if (ship.hits >= ship.size) {
+          sunkId = ship.id
+          ship.cells.forEach(c => { myBoard[c] = 'sunk' })
+          aiHuntStack = [] // sunk: reset hunt
+          aiLastHit = null
+        }
+        break
+      }
+    }
+  } else {
+    myBoard[idx] = 'miss'
+  }
+  renderMyGrid()
+  updateHP()
+
+  if (myHits >= TOTAL_HITS) {
+    endGame(false)
+    return
+  }
+
+  // Back to player's turn
+  isMyTurn = true
+  setActiveTurn(true)
+  setStatus('ตาของคุณ — เลือกยิง!', 'badge-playing')
+  enableEnemyGrid(true)
+  showToast(isHit ? (sunkId ? `AI จม ${SHIP_DEFS.find(d=>d.id===sunkId)?.name}!` : 'AI โดนเรือคุณ!') : 'AI ยิงพลาด')
+}
+
+// ---- End Game ----
+async function endGame(won) {
+  gameOver = true
+  enableEnemyGrid(false)
+  document.getElementById('aiThinking').classList.remove('show')
+  const badge = won ? 'badge-win' : 'badge-lose'
+  setStatus(won ? `🎉 ${myName} ชนะ!` : `💀 ${enemyName} ชนะ!`, badge)
+  showToast(won ? '🏆 ชนะแล้ว!' : '😢 แพ้แล้ว...')
+  await saveResult(won ? 'win' : 'loss', enemyName)
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession()
+    if (!data.session) return
+    await db.from('game_results').insert({
+      player_name: myName,
+      game: 'battleship',
+      result,
+      opponent,
+      user_id: data.session.user.id
+    })
+  } catch (_) {}
+}
+
+// ---- Reset ----
+function resetGame() {
+  realtimeChannel?.unsubscribe()
+  realtimeChannel = null
+  gameOver = false
+  myBoard = Array(100).fill(null)
+  enemyBoard = Array(100).fill(null)
+  myHits = 0
+  enemyHits = 0
+  isMyTurn = false
+  aiShips = []
+  aiShipCells = new Set()
+  aiLastHit = null
+  aiHuntStack = []
+  myShips = []
+  placedIds.clear()
+  selectedShip = null
+  isHorizontal = true
+  showScreen('setupScreen')
+}
+
+// ---- UI Helpers ----
+function setStatus(text, badgeClass) {
+  document.getElementById('statusText').textContent = text
+  const badge = document.getElementById('statusBadge')
+  badge.className = `status-badge ${badgeClass}`
+  const labels = { 'badge-waiting': 'รอ', 'badge-playing': 'กำลังเล่น', 'badge-placing': 'วางเรือ', 'badge-win': 'ชนะ', 'badge-lose': 'แพ้' }
+  badge.textContent = labels[badgeClass] || 'รอ'
+}
+
+function copyRoomCode() {
+  const code = roomId || ''
+  navigator.clipboard?.writeText(code).then(() => showToast('คัดลอก Room Code แล้ว!'))
+    .catch(() => showToast(code))
+}
+
+let toastTimer
+function showToast(msg) {
+  clearTimeout(toastTimer)
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500)
+}
+
+// ---- Online: confirm placement for multiplayer ----
+// Override confirmPlacement for online flow
+const _origConfirm = confirmPlacement
+// Patch confirmPlacement for online modes:
+window.confirmPlacement = function() {
+  if (placedIds.size < SHIP_DEFS.length) { showToast('วางเรือยังไม่ครบ'); return }
+  myBoard = Array(100).fill(null)
+  myShips.forEach(ship => { ship.cells.forEach(idx => { myBoard[idx] = 'ship' }) })
+  if (gameMode === 'ai') {
+    startVsAI()
+  } else {
+    // Online: host waits after placement; guest sends ready
+    if (!isHost) {
+      sendReady()
+      showToast('วางเรือเสร็จแล้ว รอ host เริ่มเกม...')
+    } else {
+      // Host confirms — wait for guest ready signal (already subscribed)
+      showToast('รอให้เพื่อนวางเรือเสร็จ...')
+      // Also handle if guest already sent ready before host placed
+    }
+  }
+}
+
+// Auto-detect ?mode= from URL
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search)
+  const mode = params.get('mode')
+  if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
+})
+</script>
+</body>
+</html>
