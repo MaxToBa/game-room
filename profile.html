@@ -6,80 +6,281 @@
 <title>โปรไฟล์ — GameRoom</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
     --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
     --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
     --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
-    --accent2: #7c6af5; --green: #4fcf8e;
+    --accent2: #7c6af5; --green: #4fcf8e; --accent3: #f05a5a;
     --font-display: 'DM Serif Display', serif;
     --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
   }
-  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); }
   .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
   .blob-1 { width: 500px; height: 500px; background: rgba(124,106,245,0.12); top: -150px; right: -100px; }
   .blob-2 { width: 400px; height: 400px; background: rgba(232,197,71,0.07); bottom: 0; left: -100px; }
-  .card { position: relative; z-index: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 48px 40px; width: 100%; max-width: 440px; text-align: center; animation: fadeUp 0.5s ease both; }
-  .avatar-wrap { width: 80px; height: 80px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 32px; font-weight: 700; color: #fff; margin: 0 auto 24px; overflow: hidden; }
-  .avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
-  .name { font-family: var(--font-display); font-size: 28px; margin-bottom: 6px; }
-  .email { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
-  .coming-soon { background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
-  .coming-soon-icon { font-size: 36px; margin-bottom: 12px; }
-  .coming-soon-title { font-family: var(--font-ui); font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
-  .coming-soon-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
-  .back-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-size: 14px; font-weight: 600; text-decoration: none; transition: all 0.2s; }
-  .back-btn:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.05); }
+
+  /* Header */
+  .page-header { position: relative; z-index: 1; display: flex; align-items: center; padding: 28px 32px; border-bottom: 1px solid var(--border); }
+  .logo { font-family: var(--font-display); font-size: 20px; display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .back-link { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted); font-family: var(--font-ui); font-size: 13px; font-weight: 600; text-decoration: none; transition: color 0.2s; }
+  .back-link:hover { color: var(--text); }
+
+  /* Layout */
+  .page-wrap { position: relative; z-index: 1; max-width: 520px; margin: 0 auto; padding: 40px 24px 80px; }
+  .page-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 4px; }
+  .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+
+  /* Avatar section */
+  .avatar-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 36px; }
+  .avatar-ring { position: relative; width: 96px; height: 96px; cursor: pointer; }
+  .avatar-ring:hover .avatar-overlay { opacity: 1; }
+  .avatar-img { width: 96px; height: 96px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 38px; font-weight: 700; color: #fff; overflow: hidden; border: 3px solid var(--border); transition: border-color 0.2s; }
+  .avatar-img img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-ring:hover .avatar-img { border-color: var(--accent2); }
+  .avatar-overlay { position: absolute; inset: 0; border-radius: 50%; background: rgba(0,0,0,0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; opacity: 0; transition: opacity 0.2s; }
+  .avatar-overlay-icon { font-size: 20px; }
+  .avatar-overlay-text { font-family: var(--font-ui); font-size: 10px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .avatar-upload-hint { margin-top: 10px; font-size: 12px; color: var(--muted); font-family: var(--font-ui); }
+  .upload-progress { margin-top: 8px; font-size: 13px; color: var(--accent2); font-family: var(--font-ui); font-weight: 600; display: none; }
+
+  /* Form */
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; margin-bottom: 16px; }
+  .form-card-title { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+  .form-group { margin-bottom: 20px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; color: var(--text); font-family: var(--font-th); font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .input-hint { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+  /* Provider badge */
+  .provider-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-family: var(--font-ui); font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 8px; }
+
+  /* Guest card */
+  .guest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; text-align: center; margin-bottom: 16px; }
+  .guest-card p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
+  .login-link { display: inline-flex; align-items: center; gap: 8px; background: var(--accent2); color: #fff; padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-size: 14px; font-weight: 700; text-decoration: none; transition: background 0.2s; }
+  .login-link:hover { background: #9d8fff; }
+
+  /* Buttons */
+  .save-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 14px; border-radius: 12px; font-family: var(--font-ui); font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
+  .save-btn:hover:not(:disabled) { background: #9d8fff; transform: translateY(-1px); }
+  .save-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* Status messages */
+  .status-msg { padding: 12px 16px; border-radius: 10px; font-size: 14px; font-family: var(--font-ui); font-weight: 600; margin-bottom: 12px; display: none; }
+  .status-msg.success { display: block; background: rgba(79,207,142,0.1); border: 1px solid rgba(79,207,142,0.3); color: var(--green); }
+  .status-msg.error { display: block; background: rgba(240,90,90,0.1); border: 1px solid rgba(240,90,90,0.3); color: var(--accent3); }
+  .status-msg.loading { display: block; background: rgba(124,106,245,0.1); border: 1px solid rgba(124,106,245,0.3); color: var(--accent2); }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .page-wrap { animation: fadeUp 0.5s ease both; }
 </style>
 </head>
 <body>
 <div class="blob blob-1"></div>
 <div class="blob blob-2"></div>
-<div class="card">
-  <div class="avatar-wrap" id="avatarEl">?</div>
-  <div class="name" id="nameEl">กำลังโหลด...</div>
-  <div class="email" id="emailEl"></div>
-  <div class="coming-soon">
-    <div class="coming-soon-icon">🚧</div>
-    <div class="coming-soon-title">เร็วๆ นี้</div>
-    <div class="coming-soon-text">หน้าแก้ไขโปรไฟล์กำลังพัฒนา<br>จะสามารถเปลี่ยนชื่อและรูปได้เร็วๆ นี้</div>
+
+<header class="page-header">
+  <a href="/" class="logo"><span class="logo-dot"></span>GameRoom</a>
+  <a href="/" class="back-link">← กลับหน้าหลัก</a>
+</header>
+
+<div class="page-wrap">
+  <h1 class="page-title">โปรไฟล์</h1>
+  <p class="page-sub">จัดการชื่อและรูปโปรไฟล์ของคุณ</p>
+
+  <!-- Avatar -->
+  <div class="avatar-section">
+    <div class="avatar-ring" onclick="document.getElementById('avatarInput').click()" title="เปลี่ยนรูปโปรไฟล์">
+      <div class="avatar-img" id="avatarEl"><span id="avatarInitial">?</span></div>
+      <div class="avatar-overlay">
+        <span class="avatar-overlay-icon">📷</span>
+        <span class="avatar-overlay-text">เปลี่ยนรูป</span>
+      </div>
+    </div>
+    <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="handleAvatarUpload(this)">
+    <span class="avatar-upload-hint">คลิกที่รูปเพื่อเปลี่ยน (PNG, JPG, WebP)</span>
+    <span class="upload-progress" id="uploadProgress">⏳ กำลังอัปโหลด...</span>
   </div>
-  <a href="/" class="back-btn">← กลับหน้าหลัก</a>
+
+  <!-- Status -->
+  <div class="status-msg" id="statusMsg"></div>
+
+  <!-- Form (logged in) -->
+  <div id="formSection" style="display:none">
+    <div class="form-card">
+      <div class="form-card-title">ข้อมูลโปรไฟล์</div>
+      <div class="form-group">
+        <label class="form-label">ชื่อในเกม</label>
+        <input class="form-input" id="usernameInput" placeholder="เช่น MaxToBa" maxlength="20">
+        <p class="input-hint">ชื่อนี้จะแสดงในห้องเกมและ Leaderboard</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">อีเมล</label>
+        <input class="form-input" id="emailInput" disabled>
+        <div id="providerBadge"></div>
+      </div>
+    </div>
+    <button class="save-btn" id="saveBtn" onclick="saveProfile()">บันทึกการเปลี่ยนแปลง</button>
+  </div>
+
+  <!-- Guest view -->
+  <div id="guestSection" style="display:none">
+    <div class="guest-card">
+      <p>คุณกำลังเล่นในฐานะผู้เยี่ยมชม<br>สมัครสมาชิกเพื่อบันทึกโปรไฟล์และประวัติการเล่น</p>
+      <a href="/login" class="login-link">🔑 สมัคร / เข้าสู่ระบบ</a>
+    </div>
+  </div>
 </div>
 
 <script>
-const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+// db มาจาก js/supabase.js ที่โหลดไว้แล้ว
+let currentSession = null
+let pendingAvatarUrl = null  // รอ save ก่อนค่อย update
 
-db.auth.getSession().then(({ data }) => {
-  const session = data.session
-  if (session) {
-    const meta = session.user.user_metadata || {}
-    const name = meta.full_name?.split(' ')[0] || meta.display_name || session.user.email.split('@')[0]
-    const avatarUrl = meta.avatar_url || null
-    const avatarEl = document.getElementById('avatarEl')
-    if (avatarUrl) {
-      avatarEl.innerHTML = `<img src="${avatarUrl}">`
-    } else {
-      avatarEl.textContent = name[0].toUpperCase()
-    }
-    document.getElementById('nameEl').textContent = name
-    document.getElementById('emailEl').textContent = session.user.email
+async function init() {
+  const { data } = await db.auth.getSession()
+  if (data.session) {
+    currentSession = data.session
+    await loadProfile(data.session)
+    document.getElementById('formSection').style.display = 'block'
   } else {
-    const name = localStorage.getItem('playerName')
-    if (name) {
-      document.getElementById('avatarEl').textContent = name[0].toUpperCase()
-      document.getElementById('nameEl').textContent = name
-      document.getElementById('emailEl').textContent = 'ผู้เยี่ยมชม'
+    const guestName = localStorage.getItem('playerName')
+    if (guestName) {
+      showAvatar(null, guestName)
+      document.getElementById('guestSection').style.display = 'block'
     } else {
       window.location.href = '/'
     }
   }
-})
+}
+
+async function loadProfile(session) {
+  const user = session.user
+  const meta = user.user_metadata || {}
+
+  // Default จาก auth metadata (Google/Discord)
+  const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0]
+  const defaultAvatar = meta.avatar_url || null
+  const provider = user.app_metadata?.provider || 'email'
+
+  document.getElementById('emailInput').value = user.email
+  document.getElementById('usernameInput').value = defaultName
+  showAvatar(defaultAvatar, defaultName)
+
+  // Provider badge
+  const badgeEl = document.getElementById('providerBadge')
+  const providerLabel = { google: '🔵 Google', discord: '🟣 Discord', email: '✉️ Email' }
+  badgeEl.innerHTML = `<span class="provider-badge">${providerLabel[provider] || provider}</span>`
+
+  // โหลดจาก profiles table (ถ้ามี)
+  try {
+    const { data, error } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle()
+    if (!error && data) {
+      if (data.username) document.getElementById('usernameInput').value = data.username
+      if (data.avatar_url) showAvatar(data.avatar_url, data.username || defaultName)
+    }
+  } catch (_) {
+    // profiles table ยังไม่ได้สร้าง — ใช้ auth metadata แทน
+  }
+}
+
+function showAvatar(url, name) {
+  const el = document.getElementById('avatarEl')
+  const initial = document.getElementById('avatarInitial')
+  if (url) {
+    el.innerHTML = `<img src="${url}" alt="avatar" onerror="this.parentElement.innerHTML='<span>${(name||'?')[0].toUpperCase()}</span>'">`
+  } else {
+    el.innerHTML = `<span>${(name || '?')[0].toUpperCase()}</span>`
+  }
+}
+
+async function handleAvatarUpload(input) {
+  const file = input.files[0]
+  if (!file) return
+
+  if (!currentSession) { showStatus('ต้องเข้าสู่ระบบก่อนอัปโหลดรูป', 'error'); return }
+  if (file.size > 2 * 1024 * 1024) { showStatus('ไฟล์ต้องมีขนาดไม่เกิน 2MB', 'error'); return }
+
+  const progressEl = document.getElementById('uploadProgress')
+  progressEl.style.display = 'inline'
+
+  const ext = file.name.split('.').pop().toLowerCase()
+  const userId = currentSession.user.id
+  const path = `${userId}/avatar.${ext}`
+
+  const { error } = await db.storage.from('avatars').upload(path, file, {
+    upsert: true,
+    contentType: file.type
+  })
+
+  progressEl.style.display = 'none'
+  input.value = ''
+
+  if (error) {
+    showStatus('อัปโหลดไม่สำเร็จ: ' + error.message, 'error')
+    return
+  }
+
+  const { data } = db.storage.from('avatars').getPublicUrl(path)
+  pendingAvatarUrl = data.publicUrl + '?t=' + Date.now()  // cache bust
+  const name = document.getElementById('usernameInput').value || '?'
+  showAvatar(pendingAvatarUrl, name)
+  showStatus('อัปโหลดรูปสำเร็จ ✓ กด "บันทึก" เพื่อเซฟ', 'success')
+}
+
+async function saveProfile() {
+  if (!currentSession) return
+
+  const username = document.getElementById('usernameInput').value.trim()
+  if (!username) { showStatus('กรุณาใส่ชื่อในเกม', 'error'); return }
+
+  const btn = document.getElementById('saveBtn')
+  btn.disabled = true
+  btn.textContent = 'กำลังบันทึก...'
+
+  const avatarUrl = pendingAvatarUrl || null
+
+  const { error } = await db.from('profiles').upsert({
+    id: currentSession.user.id,
+    username,
+    avatar_url: avatarUrl,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'id' })
+
+  btn.disabled = false
+  btn.textContent = 'บันทึกการเปลี่ยนแปลง'
+
+  if (error) {
+    // ถ้า table ยังไม่ได้สร้าง ให้แจ้ง SQL ที่ต้องรัน
+    if (error.code === '42P01') {
+      showStatus('⚠️ ยังไม่ได้สร้าง profiles table — รันใน Supabase SQL Editor:\n\nCREATE TABLE profiles (id uuid references auth.users primary key, username text, avatar_url text, updated_at timestamptz default now());\nALTER TABLE profiles ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "own profile" ON profiles USING (auth.uid() = id) WITH CHECK (auth.uid() = id);', 'error')
+    } else {
+      showStatus('บันทึกไม่สำเร็จ: ' + error.message, 'error')
+    }
+    return
+  }
+
+  localStorage.setItem('playerName', username)
+  if (pendingAvatarUrl) pendingAvatarUrl = null
+  showStatus('✅ บันทึกสำเร็จ!', 'success')
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg')
+  el.textContent = msg
+  el.className = 'status-msg ' + type
+  if (type === 'success') setTimeout(() => { el.className = 'status-msg' }, 4000)
+}
+
+init()
 </script>
 </body>
 </html>
