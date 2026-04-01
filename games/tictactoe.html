@@ -6,6 +6,7 @@
 <title>โอ-ซี — GameRoom</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -81,6 +82,9 @@
   .coin-sub { color: var(--muted); font-size: 14px; }
   .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .player-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: #fff; margin: 0 auto 6px; overflow: hidden; flex-shrink: 0; }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .player-card.active .player-avatar { box-shadow: 0 0 0 2px var(--accent2); }
   @keyframes winPulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
   @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -158,11 +162,13 @@
     </div>
     <div class="players-bar">
       <div class="player-card" id="player1Card">
+        <div class="player-avatar" id="player1Avatar"><span>?</span></div>
         <div class="player-symbol" style="color:var(--accent2)">✕</div>
         <div class="player-name" id="player1Name">ผู้เล่น 1</div>
       </div>
       <div class="vs-text">vs</div>
       <div class="player-card" id="player2Card">
+        <div class="player-avatar" id="player2Avatar"><span>?</span></div>
         <div class="player-symbol" style="color:var(--accent)">○</div>
         <div class="player-name" id="player2Name">ผู้เล่น 2</div>
       </div>
@@ -189,20 +195,49 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+// db มาจาก ../js/supabase.js ที่โหลดไว้แล้ว
 
 let board = Array(9).fill(null)
 let currentTurn = 'X'
 let mySymbol = 'X'
 let myName = ''
+let myAvatarUrl = null
 let gameMode = null
 let roomId = null
 let gameOver = false
 let realtimeChannel = null
 let pendingMode = null
+
+// โหลดชื่อและ avatar จาก profiles table หรือ localStorage
+async function loadMyProfile() {
+  try {
+    const { data } = await db.auth.getSession()
+    if (data.session) {
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0]
+      myAvatarUrl = meta.avatar_url || null
+      // ลองดึงจาก profiles table
+      const { data: profile } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle()
+      const name = profile?.username || defaultName
+      if (profile?.avatar_url) myAvatarUrl = profile.avatar_url
+      document.getElementById('nameInput').value = name
+      return
+    }
+  } catch (_) {}
+  // fallback: localStorage
+  const saved = localStorage.getItem('playerName')
+  if (saved) document.getElementById('nameInput').value = saved
+}
+
+function setAvatar(elId, url, name) {
+  const el = document.getElementById(elId)
+  if (!el) return
+  const initial = (name || '?')[0].toUpperCase()
+  el.innerHTML = url
+    ? `<img src="${url}" alt="${initial}" onerror="this.parentElement.innerHTML='<span>${initial}</span>'">`
+    : `<span>${initial}</span>`
+}
 
 const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
 
@@ -219,6 +254,7 @@ function showNameScreen(mode) {
   document.getElementById('nameInput').value = ''
   document.getElementById('joinInput').value = ''
   showScreen('nameScreen')
+  loadMyProfile()
 }
 
 function handleNameNext() {
@@ -272,8 +308,12 @@ function startVsAI(goFirst) {
   board = Array(9).fill(null)
   currentTurn = 'X'
   gameOver = false
-  document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : 'Claude AI'
-  document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'Claude AI'
+  const p1Name = mySymbol === 'X' ? myName : 'Claude AI'
+  const p2Name = mySymbol === 'O' ? myName : 'Claude AI'
+  document.getElementById('player1Name').textContent = p1Name
+  document.getElementById('player2Name').textContent = p2Name
+  setAvatar('player1Avatar', mySymbol === 'X' ? myAvatarUrl : null, p1Name)
+  setAvatar('player2Avatar', mySymbol === 'O' ? myAvatarUrl : null, p2Name)
   document.getElementById('roomInfo').style.display = 'none'
   showScreen('gameScreen')
   updateBoard()
@@ -324,26 +364,35 @@ async function startOnlineGame(code, isHost, goFirst) {
   if (isHost) {
     await db.from('rooms').upsert({
       id: code, game: 'tictactoe',
-      state: { board, turn: 'X', hostSymbol: mySymbol, hostName: myName },
+      state: { board, turn: 'X', hostSymbol: mySymbol, hostName: myName, hostAvatar: myAvatarUrl },
       players: [myName], status: 'waiting'
     })
-    document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : '...'
-    document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'รอเพื่อน...'
+    const p1Name = mySymbol === 'X' ? myName : '...'
+    const p2Name = mySymbol === 'O' ? myName : 'รอเพื่อน...'
+    document.getElementById('player1Name').textContent = p1Name
+    document.getElementById('player2Name').textContent = p2Name
+    setAvatar('player1Avatar', mySymbol === 'X' ? myAvatarUrl : null, p1Name)
+    setAvatar('player2Avatar', mySymbol === 'O' ? myAvatarUrl : null, p2Name)
     updateStatus('รอเพื่อนเข้าห้อง...', 'waiting')
   } else {
     const { data } = await db.from('rooms').select().eq('id', code).single()
     if (!data) { showToast('ไม่พบห้องนี้ กรุณาเช็ค code ใหม่'); showScreen('setupScreen'); return; }
     const hostName = data.state.hostName || 'เพื่อน'
     const hostSymbol = data.state.hostSymbol || 'X'
+    const hostAvatar = data.state.hostAvatar || null
     mySymbol = hostSymbol === 'X' ? 'O' : 'X'
     board = data.state.board
     currentTurn = data.state.turn
 
-    document.getElementById('player1Name').textContent = hostSymbol === 'X' ? hostName : myName
-    document.getElementById('player2Name').textContent = hostSymbol === 'O' ? hostName : myName
+    const p1Name = hostSymbol === 'X' ? hostName : myName
+    const p2Name = hostSymbol === 'O' ? hostName : myName
+    document.getElementById('player1Name').textContent = p1Name
+    document.getElementById('player2Name').textContent = p2Name
+    setAvatar('player1Avatar', hostSymbol === 'X' ? hostAvatar : myAvatarUrl, p1Name)
+    setAvatar('player2Avatar', hostSymbol === 'O' ? hostAvatar : myAvatarUrl, p2Name)
 
     await db.from('rooms').update({
-      state: { ...data.state, guestName: myName },
+      state: { ...data.state, guestName: myName, guestAvatar: myAvatarUrl },
       players: [hostName, myName], status: 'playing'
     }).eq('id', code)
     updateBoard()
@@ -362,9 +411,17 @@ async function startOnlineGame(code, isHost, goFirst) {
       const hostName = s.hostName || 'เพื่อน'
       const guestName = s.guestName || 'เพื่อน'
       const hostSymbol = s.hostSymbol || 'X'
+      const hostAvatar = s.hostAvatar || null
+      const guestAvatar = s.guestAvatar || null
 
-      document.getElementById('player1Name').textContent = hostSymbol === 'X' ? hostName : guestName
-      document.getElementById('player2Name').textContent = hostSymbol === 'O' ? hostName : guestName
+      const p1Name = hostSymbol === 'X' ? hostName : guestName
+      const p2Name = hostSymbol === 'O' ? hostName : guestName
+      const p1Avatar = hostSymbol === 'X' ? hostAvatar : guestAvatar
+      const p2Avatar = hostSymbol === 'O' ? hostAvatar : guestAvatar
+      document.getElementById('player1Name').textContent = p1Name
+      document.getElementById('player2Name').textContent = p2Name
+      setAvatar('player1Avatar', p1Avatar, p1Name)
+      setAvatar('player2Avatar', p2Avatar, p2Name)
 
       updateBoard()
       if (payload.new.status === 'playing' && isHost && guestName) {
@@ -466,8 +523,12 @@ function resetGame() {
   if (gameMode === 'ai') {
     const goFirst = Math.random() < 0.5
     mySymbol = goFirst ? 'X' : 'O'
-    document.getElementById('player1Name').textContent = mySymbol === 'X' ? myName : 'Claude AI'
-    document.getElementById('player2Name').textContent = mySymbol === 'O' ? myName : 'Claude AI'
+    const p1Name = mySymbol === 'X' ? myName : 'Claude AI'
+    const p2Name = mySymbol === 'O' ? myName : 'Claude AI'
+    document.getElementById('player1Name').textContent = p1Name
+    document.getElementById('player2Name').textContent = p2Name
+    setAvatar('player1Avatar', mySymbol === 'X' ? myAvatarUrl : null, p1Name)
+    setAvatar('player2Avatar', mySymbol === 'O' ? myAvatarUrl : null, p2Name)
     updateBoard()
     if (mySymbol === 'X') {
       updateStatus(`${myName} เดินก่อน!`, 'playing')
