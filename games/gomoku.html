@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
+<script src="../js/chat.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -198,7 +199,8 @@
       <span>AI กำลังคิด</span>
       <div class="dot-pulse"><span></span><span></span><span></span></div>
     </div>
-    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:4px">🔄 เล่นใหม่</button>
+    <div id="chatContainer" style="display:none;margin-top:16px"></div>
+    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:16px">🔄 เล่นใหม่</button>
     <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
   </div>
 </div>
@@ -217,6 +219,7 @@ let roomId = null
 let gameOver = false
 let realtimeChannel = null
 let pendingMode = null
+let gameChat = null
 
 // ── Profile ──────────────────────────────────────────────
 async function loadMyProfile() {
@@ -513,6 +516,14 @@ async function startOnlineGame(code, isHost) {
     updateStatus(currentTurn === mySymbol ? 'ตาของคุณ!' : `รอ${hostName}เดิน...`, 'playing')
   }
 
+  // Init chat
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  const chatEl = document.getElementById('chatContainer')
+  chatEl.style.display = 'block'
+  chatEl.innerHTML = ''
+  gameChat = new GameChat({ roomId: code, myName, myAvatar: myAvatarUrl, gameName: 'gomoku', container: chatEl })
+  gameChat.mount()
+
   // Realtime subscription
   if (realtimeChannel) realtimeChannel.unsubscribe()
   realtimeChannel = db.channel('gomoku:' + code)
@@ -602,12 +613,15 @@ async function endGame(winSymbol) {
   gameOver = true
   if (winSymbol) {
     const iWon = winSymbol === mySymbol
+    const opponentName = gameMode === 'ai' ? 'Claude AI' : 'เพื่อน'
     updateStatus(iWon ? `🎉 ${myName} ชนะ!` : '😔 คุณแพ้!', 'win')
     showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : (gameMode==='ai' ? 'AI ชนะครั้งนี้ ลองใหม่!' : 'เสียใจด้วย ลองใหม่!'))
-    await saveResult(iWon ? 'win' : 'loss', gameMode==='ai' ? 'Claude AI' : 'เพื่อน')
+    if (gameMode === 'online') gameChat?.gameEvent('win', { winner: iWon ? myName : opponentName })
+    await saveResult(iWon ? 'win' : 'loss', opponentName)
   } else {
     updateStatus('🤝 เสมอกัน!', 'draw')
     showToast('เสมอกัน! สู้อีกรอบ!')
+    if (gameMode === 'online') gameChat?.gameEvent('draw', {})
     await saveResult('draw', gameMode==='ai' ? 'Claude AI' : 'เพื่อน')
   }
 }
@@ -624,6 +638,8 @@ async function saveResult(result, opponent) {
 }
 
 function resetGame() {
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  document.getElementById('chatContainer').style.display = 'none'
   if (realtimeChannel) { realtimeChannel.unsubscribe(); realtimeChannel = null }
   board = Array(SIZE * SIZE).fill(null)
   currentTurn = 'B'
