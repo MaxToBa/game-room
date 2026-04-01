@@ -309,8 +309,14 @@ const games = {
   gomoku:     { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน' },
 };
 let currentGame = null;
+function debugLog(runId, hypothesisId, location, message, data) {
+  fetch('http://127.0.0.1:7610/ingest/06761ce4-487a-46ea-8cd5-cc9bcec34ee4',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7fd593'},body:JSON.stringify({sessionId:'7fd593',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
 
 function openGame(id) {
+  // #region agent log
+  debugLog('initial','H3','index.html:openGame','openGame called',{id,hasGame:!!games[id]});
+  // #endregion
   currentGame = id;
   const g = games[id];
   document.getElementById('modalEmoji').textContent = g.emoji;
@@ -319,6 +325,9 @@ function openGame(id) {
   openModal('gameModal');
 }
 function startGame(mode) {
+  // #region agent log
+  debugLog('initial','H2','index.html:startGame:entry','startGame called',{mode,currentGame});
+  // #endregion
   closeModal('gameModal')
   const routes = {
     chess:      '../games/chess.html',
@@ -329,6 +338,9 @@ function startGame(mode) {
     gomoku:     'games/gomoku.html',
   }
   const url = routes[currentGame]
+  // #region agent log
+  debugLog('initial','H2','index.html:startGame:route','resolved game route',{currentGame,url});
+  // #endregion
   if (!url) { showToast('เกมนี้ยังไม่พร้อม เร็วๆ นี้!'); return; }
 
   if (mode === 'vs-friend') {
@@ -421,6 +433,9 @@ function renderLoggedOut() {
 }
 
 function updateHeader(session) {
+  // #region agent log
+  debugLog('initial','H4','index.html:updateHeader','updateHeader called',{hasSession:!!session,localPlayerName:localStorage.getItem('playerName'),localIsGuest:localStorage.getItem('isGuest')});
+  // #endregion
   if (session) {
     const meta = session.user.user_metadata || {}
     const name = meta.full_name?.split(' ')[0] || meta.display_name || session.user.email.split('@')[0]
@@ -470,8 +485,25 @@ async function handleLogout() {
 
 // onAuthStateChange เป็น source of truth หลัก — fires ทันทีที่โหลดหน้าและหลัง OAuth redirect
 db.auth.onAuthStateChange((event, session) => {
+  // #region agent log
+  debugLog('initial','H4','index.html:onAuthStateChange','auth state changed',{event,hasSession:!!session});
+  // #endregion
   updateHeader(session)
 })
+
+window.addEventListener('error', (e) => {
+  // #region agent log
+  debugLog('initial','H1','index.html:window.error','window runtime error',{message:e.message,source:e.filename,line:e.lineno,column:e.colno});
+  // #endregion
+});
+
+document.querySelectorAll('.filter-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    // #region agent log
+    debugLog('initial','H1','index.html:filterBtn.click','filter button clicked',{text:btn.textContent?.trim()});
+    // #endregion
+  });
+});
 </script>
 
 </body>
