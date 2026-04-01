@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
+<script src="../js/chat.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -267,7 +268,8 @@
       <span>AI กำลังคิด</span>
       <div class="dot-pulse"><span></span><span></span><span></span></div>
     </div>
-    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:8px">🔄 เล่นใหม่</button>
+    <div id="chatContainer" style="display:none;margin-top:16px"></div>
+    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:16px">🔄 เล่นใหม่</button>
     <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
   </div>
 </div>
@@ -295,6 +297,7 @@ let isHost = false
 let realtimeChannel = null
 let pendingMode = null
 let gameOver = false
+let gameChat = null
 
 // Placement state
 let myShips = []       // array of {id, cells:[idx], horizontal}
@@ -728,6 +731,14 @@ function initOnlineGame(myGoFirst) {
   setActiveTurn(isMyTurn)
   setStatus(isMyTurn ? 'ตาของคุณ — เลือกยิง!' : `รอ ${enemyName} ยิง`, isMyTurn ? 'badge-playing' : 'badge-waiting')
   enableEnemyGrid(isMyTurn)
+
+  // Init chat for online mode
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  const chatEl = document.getElementById('chatContainer')
+  chatEl.style.display = 'block'
+  chatEl.innerHTML = ''
+  gameChat = new GameChat({ roomId, myName, myAvatar: myAvatarUrl, gameName: 'battleship', container: chatEl })
+  gameChat.mount()
 }
 
 // ---- Game Grids ----
@@ -892,10 +903,14 @@ function applyMyBoardResult(idx, result, sunkId) {
   if (result === 'hit' || result === 'sunk') {
     enemyHits++
     enemyBoard[idx] = result === 'sunk' ? 'sunk' : 'hit'
+    const sunkDef = result === 'sunk' ? SHIP_DEFS.find(d => d.id === sunkId) : null
     showToast(result === 'sunk' ? '💥 จมแล้ว!' : '🎯 โดน!')
+    if (result === 'sunk' && sunkDef) gameChat?.gameEvent('sunk', { player: myName, ship: sunkDef.name })
+    else if (result === 'hit') gameChat?.gameEvent('hit', { player: myName })
   } else {
     enemyBoard[idx] = 'miss'
     showToast('💨 พลาด')
+    gameChat?.gameEvent('miss', { player: myName })
   }
   renderEnemyGrid()
   updateHP()
@@ -983,6 +998,7 @@ async function endGame(won) {
   const badge = won ? 'badge-win' : 'badge-lose'
   setStatus(won ? `🎉 ${myName} ชนะ!` : `💀 ${enemyName} ชนะ!`, badge)
   showToast(won ? '🏆 ชนะแล้ว!' : '😢 แพ้แล้ว...')
+  if (gameMode !== 'ai') gameChat?.gameEvent('win', { winner: won ? myName : enemyName })
   await saveResult(won ? 'win' : 'loss', enemyName)
 }
 
@@ -1002,6 +1018,8 @@ async function saveResult(result, opponent) {
 
 // ---- Reset ----
 function resetGame() {
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  document.getElementById('chatContainer').style.display = 'none'
   realtimeChannel?.unsubscribe()
   realtimeChannel = null
   gameOver = false
