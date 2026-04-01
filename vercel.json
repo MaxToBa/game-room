@@ -1,6 +1,6 @@
 {
-    "version": 2,
-    "routes": [
-      { "src": "/(.*)", "dest": "/$1.html" }
-    ]
-  }
+  "version": 2,
+  "routes": [
+    { "src": "^/([^.]+)$", "dest": "/$1.html" }
+  ]
+}
