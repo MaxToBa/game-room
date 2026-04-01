@@ -6,6 +6,7 @@
 <title>Leaderboard — GameRoom</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -46,18 +47,19 @@
   /* Table */
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
   .table-header { display: grid; padding: 14px 20px; border-bottom: 1px solid var(--border); font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-  .table-header.leaderboard-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
-  .table-header.history-grid { grid-template-columns: 1fr 80px 120px 140px; }
+  .table-header.lb-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
+  .table-header.hist-grid { grid-template-columns: 1fr 100px 90px 130px; }
   .table-row { display: grid; padding: 14px 20px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.15s; }
   .table-row:last-child { border-bottom: none; }
   .table-row:hover { background: rgba(255,255,255,0.02); }
-  .table-row.leaderboard-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
-  .table-row.history-grid { grid-template-columns: 1fr 80px 120px 140px; }
+  .table-row.lb-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
+  .table-row.hist-grid { grid-template-columns: 1fr 100px 90px 130px; }
   .rank-num { font-family: var(--font-display); font-size: 18px; color: var(--muted); }
   .rank-num.top { color: var(--accent); }
-  .player-info { display: flex; align-items: center; gap: 10px; }
-  .player-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .player-display-name { font-weight: 600; font-size: 15px; }
+  .player-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .player-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; overflow: hidden; }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .player-display-name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .stat { font-family: var(--font-ui); font-size: 14px; font-weight: 600; }
   .stat.wins { color: var(--green); }
   .stat.losses { color: var(--red); }
@@ -66,27 +68,55 @@
   .result-win  { background: rgba(79,207,142,0.15); color: var(--green); }
   .result-loss { background: rgba(240,90,90,0.15);  color: var(--red); }
   .result-draw { background: rgba(107,104,128,0.2); color: var(--muted); }
-  .game-tag { font-size: 13px; color: var(--muted); }
+  .game-tag { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; }
   .time-text { font-size: 12px; color: var(--muted); font-family: var(--font-ui); }
-  .opponent-text { font-size: 14px; }
+  .opponent-text { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty-icon { font-size: 48px; margin-bottom: 12px; display: block; }
-  .empty-text { font-size: 15px; }
+  .empty-text { font-size: 15px; margin-bottom: 16px; }
   .loading { text-align: center; padding: 40px; color: var(--muted); font-family: var(--font-ui); }
 
-  /* Search */
-  .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-  .search-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 11px 16px; color: var(--text); font-family: var(--font-th); font-size: 15px; outline: none; transition: border-color 0.2s; }
-  .search-input:focus { border-color: var(--accent2); }
-  .search-input::placeholder { color: var(--muted); }
+  /* Login notice banner */
+  .login-notice {
+    background: linear-gradient(135deg, rgba(124,106,245,0.1), rgba(124,106,245,0.05));
+    border: 1px solid rgba(124,106,245,0.3);
+    border-radius: 20px; padding: 40px 24px; text-align: center; margin-bottom: 8px;
+  }
+  .login-notice-icon { font-size: 48px; margin-bottom: 16px; display: block; }
+  .login-notice-title { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .login-notice-sub { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+  .login-btn {
+    display: inline-block; background: var(--accent2); color: #fff;
+    padding: 12px 28px; border-radius: 14px; font-family: var(--font-ui);
+    font-size: 15px; font-weight: 700; text-decoration: none; cursor: pointer;
+    border: none; transition: all 0.2s;
+  }
+  .login-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+
+  /* Personal stats cards */
+  .personal-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 14px; text-align: center; }
+  .stat-card-val { font-family: var(--font-display); font-size: 28px; margin-bottom: 4px; }
+  .stat-card-val.green { color: var(--green); }
+  .stat-card-val.red { color: var(--red); }
+  .stat-card-val.muted { color: var(--muted); }
+  .stat-card-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+
+  /* Sub-game filter */
+  .game-filter { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 999px; font-family: var(--font-ui); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .filter-btn:hover { border-color: var(--border-hover); color: var(--text); }
+  .filter-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border-hover); }
 
   @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   .fade-up { animation: fadeUp 0.4s ease both; }
-
   @media (max-width: 600px) {
     .top3 { grid-template-columns: 1fr; }
-    .table-header.leaderboard-grid, .table-row.leaderboard-grid { grid-template-columns: 40px 1fr 60px 60px; }
-    .table-header.leaderboard-grid .hide-mobile, .table-row.leaderboard-grid .hide-mobile { display: none; }
+    .table-header.lb-grid, .table-row.lb-grid { grid-template-columns: 40px 1fr 60px 60px; }
+    .table-header.lb-grid .hide-mobile, .table-row.lb-grid .hide-mobile { display: none; }
+    .table-header.hist-grid, .table-row.hist-grid { grid-template-columns: 1fr 80px 90px; }
+    .table-header.hist-grid .hide-mobile, .table-row.hist-grid .hide-mobile { display: none; }
+    .personal-stats { grid-template-columns: repeat(3, 1fr); }
   }
 </style>
 </head>
@@ -100,25 +130,23 @@
     <div style="width:80px"></div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Main Tabs -->
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('leaderboard', this)">🏆 อันดับ</button>
-    <button class="tab-btn" onclick="switchTab('history', this)">📋 ประวัติการเล่น</button>
+    <button class="tab-btn active" id="tabBtnLb" onclick="switchTab('leaderboard')">🏆 อันดับรวม</button>
+    <button class="tab-btn" id="tabBtnHist" onclick="switchTab('history')">👤 ประวัติของฉัน</button>
   </div>
 
-  <!-- Leaderboard Tab -->
+  <!-- ─── Leaderboard Tab ─── -->
   <div id="leaderboardTab" class="fade-up">
-    <div class="tabs" style="margin-bottom:20px">
-      <button class="tab-btn active" onclick="filterGame('all', this)">ทั้งหมด</button>
-      <button class="tab-btn" onclick="filterGame('tictactoe', this)">⭕ โอ-ซี</button>
-      <button class="tab-btn" onclick="filterGame('gomoku', this)">⚫ Gomoku</button>
-      <button class="tab-btn" onclick="filterGame('battleship', this)">🚢 Battle Ship</button>
+    <div class="game-filter">
+      <button class="filter-btn active" onclick="filterGame('all', this)">ทั้งหมด</button>
+      <button class="filter-btn" onclick="filterGame('tictactoe', this)">⭕ โอ-ซี</button>
+      <button class="filter-btn" onclick="filterGame('gomoku', this)">⚫ Gomoku</button>
+      <button class="filter-btn" onclick="filterGame('battleship', this)">⚓ Battleship</button>
     </div>
-
     <div class="top3" id="top3"></div>
-
     <div class="table-wrap">
-      <div class="table-header leaderboard-grid">
+      <div class="table-header lb-grid">
         <div>#</div>
         <div>ผู้เล่น</div>
         <div>ชนะ</div>
@@ -129,62 +157,99 @@
     </div>
   </div>
 
-  <!-- History Tab -->
+  <!-- ─── Personal History Tab ─── -->
   <div id="historyTab" style="display:none" class="fade-up">
-    <div class="search-bar">
-      <input class="search-input" id="searchInput" placeholder="ค้นหาชื่อผู้เล่น..." oninput="searchHistory()">
-    </div>
-    <div class="table-wrap">
-      <div class="table-header history-grid">
-        <div>ผู้เล่น vs คู่ต่อสู้</div>
-        <div>เกม</div>
-        <div>ผล</div>
-        <div>เวลา</div>
+    <!-- Guest notice -->
+    <div id="guestNotice" style="display:none">
+      <div class="login-notice">
+        <span class="login-notice-icon">🔒</span>
+        <div class="login-notice-title">เข้าสู่ระบบก่อนนะ</div>
+        <div class="login-notice-sub">ประวัติการเล่นส่วนตัวจะโชว์เฉพาะสำหรับ<br>ผู้เล่นที่เข้าสู่ระบบแล้วเท่านั้น</div>
+        <a href="login.html" class="login-btn">🔑 เข้าสู่ระบบ / สมัครสมาชิก</a>
       </div>
-      <div id="historyList"><div class="loading">กำลังโหลด...</div></div>
+    </div>
+    <!-- Logged-in personal history -->
+    <div id="personalHistory" style="display:none">
+      <div class="personal-stats" id="personalStats"></div>
+      <div class="game-filter" id="historyGameFilter">
+        <button class="filter-btn active" onclick="filterHistory('all', this)">ทั้งหมด</button>
+        <button class="filter-btn" onclick="filterHistory('tictactoe', this)">⭕ โอ-ซี</button>
+        <button class="filter-btn" onclick="filterHistory('gomoku', this)">⚫ Gomoku</button>
+        <button class="filter-btn" onclick="filterHistory('battleship', this)">⚓ Battleship</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header hist-grid">
+          <div>คู่ต่อสู้</div>
+          <div>เกม</div>
+          <div>ผล</div>
+          <div class="hide-mobile">เวลา</div>
+        </div>
+        <div id="historyList"><div class="loading">กำลังโหลด...</div></div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+// db comes from js/supabase.js
 
-let allResults = []
-let currentGame = 'all'
-let currentTab = 'leaderboard'
-
-const gameNames = {
+const GAME_NAMES = {
   tictactoe: '⭕ โอ-ซี',
   gomoku: '⚫ Gomoku',
-  battleship: '🚢 Battle Ship',
-  chess: '♟️ หมากรุก',
-  uno: '🃏 UNO',
-  '2048': '🔢 2048'
+  battleship: '⚓ Battleship',
 }
 
-async function loadData() {
-  const { data, error } = await db
-    .from('game_results')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(200)
+let allResults = []         // public leaderboard data
+let myResults = []          // personal history
+let mySession = null
+let currentLbGame = 'all'
+let currentHistGame = 'all'
 
-  if (error) { console.error(error); return; }
+async function init() {
+  const { data } = await db.auth.getSession()
+  mySession = data?.session || null
+  await loadPublicData()
+  if (currentTab === 'history') await loadPersonalHistory()
+}
+
+let currentTab = 'leaderboard'
+
+async function loadPublicData() {
+  const { data } = await db
+    .from('game_results')
+    .select('player_name, game, result')
+    .order('created_at', { ascending: false })
+    .limit(500)
   allResults = data || []
   renderLeaderboard()
-  renderHistory()
 }
 
+async function loadPersonalHistory() {
+  if (!mySession) {
+    document.getElementById('guestNotice').style.display = 'block'
+    document.getElementById('personalHistory').style.display = 'none'
+    return
+  }
+  document.getElementById('guestNotice').style.display = 'none'
+  document.getElementById('personalHistory').style.display = 'block'
+
+  const { data } = await db
+    .from('game_results')
+    .select('*')
+    .eq('user_id', mySession.user.id)
+    .order('created_at', { ascending: false })
+    .limit(200)
+  myResults = data || []
+  renderPersonalStats()
+  renderHistoryList()
+}
+
+// ─── Leaderboard ───────────────────────────────────────────
 function getStats(results) {
   const stats = {}
   results.forEach(r => {
-    if (!stats[r.player_name]) {
-      stats[r.player_name] = { name: r.player_name, wins: 0, losses: 0, draws: 0, total: 0 }
-    }
-    stats[r.player_name].total++
+    if (!r.player_name) return
+    if (!stats[r.player_name]) stats[r.player_name] = { name: r.player_name, wins: 0, losses: 0, draws: 0 }
     if (r.result === 'win') stats[r.player_name].wins++
     else if (r.result === 'loss') stats[r.player_name].losses++
     else stats[r.player_name].draws++
@@ -193,37 +258,31 @@ function getStats(results) {
 }
 
 function renderLeaderboard() {
-  const filtered = currentGame === 'all' ? allResults : allResults.filter(r => r.game === currentGame)
+  const filtered = currentLbGame === 'all' ? allResults : allResults.filter(r => r.game === currentLbGame)
   const stats = getStats(filtered)
 
-  // Top 3
   const medals = ['🥇', '🥈', '🥉']
   const rankClass = ['rank-1', 'rank-2', 'rank-3']
   const top3El = document.getElementById('top3')
-  if (stats.length === 0) {
-    top3El.innerHTML = ''
-  } else {
-    top3El.innerHTML = stats.slice(0, 3).map((p, i) => `
-      <div class="top3-card ${rankClass[i] || ''}">
-        <span class="rank-badge">${medals[i] || '🏅'}</span>
-        <div class="top3-name">${p.name}</div>
-        <div class="top3-wins"><span>${p.wins}</span> ชนะ</div>
-      </div>
-    `).join('')
-  }
+  top3El.innerHTML = stats.slice(0, 3).map((p, i) => `
+    <div class="top3-card ${rankClass[i] || ''}">
+      <span class="rank-badge">${medals[i] || '🏅'}</span>
+      <div class="top3-name">${_esc(p.name)}</div>
+      <div class="top3-wins"><span>${p.wins}</span> ชนะ</div>
+    </div>
+  `).join('')
 
-  // Table
   const list = document.getElementById('leaderboardList')
   if (stats.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="empty-icon">🎮</span><div class="empty-text">ยังไม่มีข้อมูล เริ่มเล่นเกมก่อนนะครับ!</div></div>`
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">🎮</span><div class="empty-text">ยังไม่มีข้อมูล เริ่มเล่นเกมก่อนนะ!</div></div>`
     return
   }
   list.innerHTML = stats.map((p, i) => `
-    <div class="table-row leaderboard-grid">
+    <div class="table-row lb-grid">
       <div class="rank-num ${i < 3 ? 'top' : ''}">${i + 1}</div>
       <div class="player-info">
-        <div class="player-avatar">${p.name[0].toUpperCase()}</div>
-        <div class="player-display-name">${p.name}</div>
+        <div class="player-avatar">${_esc(p.name[0].toUpperCase())}</div>
+        <div class="player-display-name">${_esc(p.name)}</div>
       </div>
       <div class="stat wins">${p.wins}</div>
       <div class="stat losses">${p.losses}</div>
@@ -232,37 +291,74 @@ function renderLeaderboard() {
   `).join('')
 }
 
-function renderHistory(search = '') {
-  const filtered = allResults.filter(r =>
-    !search || r.player_name.toLowerCase().includes(search.toLowerCase()) ||
-    r.opponent.toLowerCase().includes(search.toLowerCase())
-  )
+function filterGame(game, btn) {
+  currentLbGame = game
+  document.querySelectorAll('#leaderboardTab .filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  renderLeaderboard()
+}
+
+// ─── Personal History ───────────────────────────────────────
+function renderPersonalStats() {
+  const filtered = currentHistGame === 'all' ? myResults : myResults.filter(r => r.game === currentHistGame)
+  const wins = filtered.filter(r => r.result === 'win').length
+  const losses = filtered.filter(r => r.result === 'loss').length
+  const draws = filtered.filter(r => r.result === 'draw').length
+  document.getElementById('personalStats').innerHTML = `
+    <div class="stat-card"><div class="stat-card-val green">${wins}</div><div class="stat-card-label">ชนะ</div></div>
+    <div class="stat-card"><div class="stat-card-val red">${losses}</div><div class="stat-card-label">แพ้</div></div>
+    <div class="stat-card"><div class="stat-card-val muted">${draws}</div><div class="stat-card-label">เสมอ</div></div>
+  `
+}
+
+function renderHistoryList() {
+  const filtered = currentHistGame === 'all' ? myResults : myResults.filter(r => r.game === currentHistGame)
   const list = document.getElementById('historyList')
   if (filtered.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="empty-icon">📋</span><div class="empty-text">${search ? 'ไม่พบผู้เล่นนี้' : 'ยังไม่มีประวัติการเล่น'}</div></div>`
+    list.innerHTML = `<div class="empty-state"><span class="empty-icon">🎮</span><div class="empty-text">ยังไม่มีประวัติเกม${currentHistGame !== 'all' ? 'นี้' : ''}</div></div>`
     return
   }
   list.innerHTML = filtered.map(r => `
-    <div class="table-row history-grid">
+    <div class="table-row hist-grid">
       <div class="player-info">
-        <div class="player-avatar">${r.player_name[0].toUpperCase()}</div>
+        <div class="player-avatar">${r.opponent ? _esc(r.opponent[0].toUpperCase()) : '?'}</div>
         <div>
-          <div class="player-display-name">${r.player_name}</div>
-          <div class="opponent-text" style="font-size:12px;color:var(--muted)">vs ${r.opponent}</div>
+          <div class="player-display-name">vs ${_esc(r.opponent || '?')}</div>
+          <div class="opponent-text">${_esc(r.player_name || '')}</div>
         </div>
       </div>
-      <div class="game-tag">${gameNames[r.game] || r.game}</div>
+      <div class="game-tag">${GAME_NAMES[r.game] || _esc(r.game || '')}</div>
       <div>
         <span class="result-badge result-${r.result}">
           ${r.result === 'win' ? '🎉 ชนะ' : r.result === 'loss' ? '😔 แพ้' : '🤝 เสมอ'}
         </span>
       </div>
-      <div class="time-text">${timeAgo(r.created_at)}</div>
+      <div class="time-text hide-mobile">${timeAgo(r.created_at)}</div>
     </div>
   `).join('')
 }
 
+function filterHistory(game, btn) {
+  currentHistGame = game
+  document.querySelectorAll('#historyGameFilter .filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  renderPersonalStats()
+  renderHistoryList()
+}
+
+// ─── Tab switching ──────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab
+  document.getElementById('tabBtnLb').classList.toggle('active', tab === 'leaderboard')
+  document.getElementById('tabBtnHist').classList.toggle('active', tab === 'history')
+  document.getElementById('leaderboardTab').style.display = tab === 'leaderboard' ? 'block' : 'none'
+  document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none'
+  if (tab === 'history') loadPersonalHistory()
+}
+
+// ─── Helpers ────────────────────────────────────────────────
 function timeAgo(dateStr) {
+  if (!dateStr) return ''
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(mins / 60)
@@ -273,33 +369,19 @@ function timeAgo(dateStr) {
   return `${days} วันที่แล้ว`
 }
 
-function switchTab(tab, btn) {
-  currentTab = tab
-  document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  document.getElementById('leaderboardTab').style.display = tab === 'leaderboard' ? 'block' : 'none'
-  document.getElementById('historyTab').style.display = tab === 'history' ? 'block' : 'none'
+function _esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
-function filterGame(game, btn) {
-  currentGame = game
-  document.querySelectorAll('#leaderboardTab .tabs .tab-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  renderLeaderboard()
-}
-
-function searchHistory() {
-  renderHistory(document.getElementById('searchInput').value)
-}
-
-loadData()
-
-// Realtime update
-db.channel('leaderboard')
+// Realtime: reload on new game results
+db.channel('leaderboard-realtime')
   .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_results' }, () => {
-    loadData()
+    loadPublicData()
+    if (currentTab === 'history' && mySession) loadPersonalHistory()
   })
   .subscribe()
+
+init()
 </script>
 </body>
 </html>
