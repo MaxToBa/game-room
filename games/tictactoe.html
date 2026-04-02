@@ -504,12 +504,7 @@ async function endGame(winner) {
     }
 
     // บันทึกผลเกม
-    await db.from('game_results').insert({
-      player_name: myName,
-      game: 'tictactoe',
-      result: iWon ? 'win' : 'loss',
-      opponent: gameMode === 'ai' ? 'Claude AI' : opponentName
-    })
+    await saveResult(iWon ? 'win' : 'loss', gameMode === 'ai' ? 'Claude AI' : opponentName)
 
   } else {
     updateStatus('🤝 เสมอกัน!', 'draw')
@@ -517,13 +512,19 @@ async function endGame(winner) {
     if (gameMode === 'online') gameChat?.gameEvent('draw', {})
 
     // บันทึกผลเสมอ
-    await db.from('game_results').insert({
-      player_name: myName,
-      game: 'tictactoe',
-      result: 'draw',
-      opponent: gameMode === 'ai' ? 'Claude AI' : 'เพื่อน'
-    })
+    await saveResult('draw', gameMode === 'ai' ? 'Claude AI' : 'เพื่อน')
   }
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession()
+    if (!data.session) return // guest — ไม่บันทึก
+    await db.from('game_results').insert({
+      player_name: myName, game: 'tictactoe', result, opponent,
+      user_id: data.session.user.id
+    })
+  } catch (_) {}
 }
 
 function resetGame() {
