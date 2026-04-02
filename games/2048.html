@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2048 — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/chat.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e; --red: #f05a5a;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; flex-direction: column; align-items: center; padding: 32px 16px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 400px; height: 400px; background: rgba(232,197,71,0.1); top: -100px; right: -100px; }
+  .blob-2 { width: 300px; height: 300px; background: rgba(124,106,245,0.07); bottom: 0; left: -80px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
+  .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .game-title { font-family: var(--font-display); font-size: 24px; }
+
+  /* Setup screen */
+  .setup-screen { text-align: center; padding: 20px 0; }
+  .setup-title { font-family: var(--font-display); font-size: 40px; margin-bottom: 8px; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-options { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .mode-card-sub { font-size: 13px; color: var(--muted); }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
+  .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 14px; border-radius: 14px; font-family: var(--font-ui); font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
+  .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); transform: translateY(-1px); }
+
+  /* Room info */
+  .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; }
+  .room-code-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 4px; }
+  .room-code-text { font-family: var(--font-display); font-size: 24px; letter-spacing: 4px; color: var(--accent); }
+  .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
+  .copy-code-btn:hover { border-color: var(--border-hover); }
+
+  /* Status bar */
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .status-text { font-size: 15px; font-weight: 600; }
+  .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .badge-waiting { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-win { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .badge-lose { background: rgba(240,90,90,0.15); color: var(--red); }
+
+  /* Score area */
+  .score-area { display: grid; gap: 12px; margin-bottom: 20px; }
+  .score-area.solo { grid-template-columns: 1fr 1fr; }
+  .score-area.vs { grid-template-columns: 1fr auto 1fr; }
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; text-align: center; transition: all 0.3s; }
+  .score-card.active { border-color: var(--accent); box-shadow: 0 0 20px rgba(232,197,71,0.15); }
+  .score-card.leading { border-color: var(--green); box-shadow: 0 0 20px rgba(79,207,142,0.15); }
+  .score-label { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .score-value { font-family: var(--font-display); font-size: 28px; color: var(--accent); }
+  .score-value.small { font-size: 20px; }
+  .vs-sep { font-family: var(--font-display); font-size: 18px; color: var(--muted); display: flex; align-items: center; }
+  .player-name-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+  /* Timer */
+  .timer-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  .timer-icon { font-size: 18px; }
+  .timer-text { font-family: var(--font-display); font-size: 22px; flex: 1; }
+  .timer-text.urgent { color: var(--red); animation: timerPulse 1s ease infinite; }
+  .timer-progress { height: 4px; background: var(--surface2); border-radius: 2px; flex: 2; overflow: hidden; }
+  .timer-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear, background 1s; }
+  .timer-fill.urgent { background: var(--red); }
+
+  /* Game board */
+  .game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .game-area.vs-layout { flex-direction: row; align-items: flex-start; gap: 16px; justify-content: center; }
+  .board-wrapper { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .board-label { font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .board-label.mine { color: var(--accent); }
+  .board-label.theirs { color: var(--accent2); }
+  .board { background: #1a1428; border-radius: 14px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; touch-action: none; user-select: none; }
+  .board.small { padding: 7px; gap: 5px; }
+  .board.small .tile { width: 54px; height: 54px; font-size: 14px; border-radius: 8px; }
+  .tile { width: 80px; height: 80px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 22px; font-weight: 700; transition: transform 0.1s ease; position: relative; }
+  .tile-empty { background: rgba(255,255,255,0.04); }
+  .tile-2    { background: #eee4da; color: #776e65; }
+  .tile-4    { background: #ede0c8; color: #776e65; }
+  .tile-8    { background: #f2b179; color: #f9f6f2; }
+  .tile-16   { background: #f59563; color: #f9f6f2; }
+  .tile-32   { background: #f67c5f; color: #f9f6f2; }
+  .tile-64   { background: #f65e3b; color: #f9f6f2; }
+  .tile-128  { background: #edcf72; color: #f9f6f2; font-size: 18px; box-shadow: 0 0 20px rgba(237,207,114,0.4); }
+  .tile-256  { background: #edcc61; color: #f9f6f2; font-size: 18px; box-shadow: 0 0 20px rgba(237,204,97,0.4); }
+  .tile-512  { background: #edc850; color: #f9f6f2; font-size: 16px; box-shadow: 0 0 24px rgba(237,200,80,0.5); }
+  .tile-1024 { background: #edc53f; color: #f9f6f2; font-size: 14px; box-shadow: 0 0 28px rgba(237,197,63,0.6); }
+  .tile-2048 { background: #edc22e; color: #f9f6f2; font-size: 14px; box-shadow: 0 0 32px rgba(237,194,46,0.7); animation: tile2048Glow 1.5s ease infinite; }
+  .tile-super { background: #3c3a32; color: #f9f6f2; font-size: 12px; }
+  @keyframes tile2048Glow {
+    0%, 100% { box-shadow: 0 0 32px rgba(237,194,46,0.7); }
+    50% { box-shadow: 0 0 50px rgba(237,194,46,1); }
+  }
+  @keyframes tileSpawn {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes tileMerge {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .tile.spawn { animation: tileSpawn 0.2s ease forwards; }
+  .tile.merged { animation: tileMerge 0.15s ease forwards; }
+  @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  @keyframes winPulse { 0% { transform: scale(0.95); opacity: 0; } 60% { transform: scale(1.03); } 100% { transform: scale(1); opacity: 1; } }
+  .game-over-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; animation: winPulse 0.4s ease; }
+  .game-over-card { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 40px 32px; text-align: center; max-width: 340px; width: 90%; }
+  .game-over-emoji { font-size: 64px; margin-bottom: 16px; }
+  .game-over-title { font-family: var(--font-display); font-size: 32px; margin-bottom: 8px; }
+  .game-over-score { font-size: 18px; color: var(--muted); margin-bottom: 24px; }
+  .game-over-score strong { color: var(--accent); font-family: var(--font-display); font-size: 28px; }
+
+  @media (max-width: 480px) {
+    .tile { width: 68px; height: 68px; font-size: 18px; }
+    .board { gap: 6px; padding: 8px; }
+    .game-area.vs-layout { flex-direction: column; align-items: center; }
+    .board.small .tile { width: 46px; height: 46px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="container">
+  <div class="top-bar">
+    <a class="back-btn" href="../index.html">← กลับ</a>
+    <span class="game-title">2048</span>
+    <div style="width:64px"></div>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <div id="setupScreen" class="setup-screen">
+    <div class="setup-title">2048</div>
+    <div class="setup-sub">รวมตัวเลขให้ได้ 2048!<br>เล่นคนเดียวหรือแข่งกับเพื่อน</div>
+    <div class="setup-options">
+      <div class="mode-card" onclick="showSoloSetup()">
+        <div class="mode-card-title">🧩 Solo Mode</div>
+        <div class="mode-card-sub">เล่นคนเดียว รวมตัวเลขให้ได้ 2048 — บันทึกสถิติสูงสุด</div>
+      </div>
+      <div class="mode-card" onclick="showCreateRoom()">
+        <div class="mode-card-title">🏠 สร้างห้อง (VS)</div>
+        <div class="mode-card-sub">สร้างห้องแข่งกับเพื่อน — ใครได้แต้มสูงกว่าใน 3 นาทีชนะ</div>
+      </div>
+      <div class="mode-card" onclick="showJoinRoom()">
+        <div class="mode-card-title">🚪 เข้าร่วมห้อง (VS)</div>
+        <div class="mode-card-sub">ใส่รหัสห้องจากเพื่อนแล้วเริ่มแข่งได้เลย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SOLO NAME SCREEN -->
+  <div id="soloNameScreen" class="name-screen" style="display:none">
+    <div class="setup-title" style="font-size:28px;margin-bottom:8px">เล่น Solo</div>
+    <div class="setup-sub">ใส่ชื่อของคุณ</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="soloNameInput" placeholder="ชื่อของคุณ" maxlength="20">
+    </div>
+    <button class="action-btn" onclick="startSolo()">เริ่มเกม</button>
+    <button class="action-btn secondary" onclick="showSetup()">ย้อนกลับ</button>
+  </div>
+
+  <!-- CREATE ROOM SCREEN -->
+  <div id="createRoomScreen" class="name-screen" style="display:none">
+    <div class="setup-title" style="font-size:28px;margin-bottom:8px">สร้างห้อง</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="createNameInput" placeholder="ชื่อของคุณ" maxlength="20">
+    </div>
+    <button class="action-btn" onclick="createRoom()">สร้างห้อง</button>
+    <button class="action-btn secondary" onclick="showSetup()">ย้อนกลับ</button>
+  </div>
+
+  <!-- JOIN ROOM SCREEN -->
+  <div id="joinRoomScreen" class="name-screen" style="display:none">
+    <div class="setup-title" style="font-size:28px;margin-bottom:8px">เข้าร่วมห้อง</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="joinNameInput" placeholder="ชื่อของคุณ" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label class="form-label">รหัสห้อง</label>
+      <input class="form-input code-input" id="joinCodeInput" placeholder="XXXX" maxlength="4">
+    </div>
+    <button class="action-btn" onclick="joinRoom()">เข้าร่วม</button>
+    <button class="action-btn secondary" onclick="showSetup()">ย้อนกลับ</button>
+  </div>
+
+  <!-- WAITING SCREEN -->
+  <div id="waitingScreen" style="display:none; text-align:center; padding:40px 0">
+    <div class="room-info" style="margin-bottom:32px">
+      <div>
+        <div class="room-code-label">รหัสห้อง</div>
+        <div class="room-code-text" id="displayRoomCode">----</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyCode()">คัดลอก</button>
+    </div>
+    <div style="font-family:var(--font-display);font-size:28px;margin-bottom:8px">รอผู้เล่นคนที่ 2...</div>
+    <div style="color:var(--muted);font-size:15px;margin-bottom:32px">แชร์รหัสห้องให้เพื่อนของคุณ</div>
+    <div class="dot-pulse" style="justify-content:center;display:flex;gap:6px">
+      <span style="width:10px;height:10px;background:var(--accent2);border-radius:50%;display:inline-block;animation:dotPulse 1.2s ease-in-out infinite"></span>
+      <span style="width:10px;height:10px;background:var(--accent2);border-radius:50%;display:inline-block;animation:dotPulse 1.2s ease-in-out infinite 0.2s"></span>
+      <span style="width:10px;height:10px;background:var(--accent2);border-radius:50%;display:inline-block;animation:dotPulse 1.2s ease-in-out infinite 0.4s"></span>
+    </div>
+    <style>@keyframes dotPulse{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}</style>
+    <button class="action-btn secondary" style="margin-top:32px" onclick="resetGame()">ยกเลิก</button>
+  </div>
+
+  <!-- GAME SCREEN (SOLO) -->
+  <div id="soloGameScreen" style="display:none">
+    <div class="status-bar">
+      <span class="status-text" id="soloStatus">กำลังเล่น</span>
+      <span class="status-badge badge-playing" id="soloBadge">กำลังเล่น</span>
+    </div>
+
+    <div class="score-area solo">
+      <div class="score-card">
+        <div class="score-label">คะแนน</div>
+        <div class="score-value" id="soloScore">0</div>
+      </div>
+      <div class="score-card">
+        <div class="score-label">สถิติสูงสุด</div>
+        <div class="score-value" id="soloBest">0</div>
+      </div>
+    </div>
+
+    <div class="game-area">
+      <div class="board-wrapper">
+        <div class="board" id="soloBoard"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button class="action-btn secondary" onclick="resetGame()">เริ่มใหม่</button>
+    </div>
+  </div>
+
+  <!-- GAME SCREEN (VS) -->
+  <div id="vsGameScreen" style="display:none">
+    <div class="room-info" id="vsRoomInfo" style="margin-bottom:16px">
+      <div>
+        <div class="room-code-label">ห้อง</div>
+        <div class="room-code-text" id="vsRoomCode" style="font-size:18px;letter-spacing:3px">----</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyCode()">คัดลอก</button>
+    </div>
+
+    <div class="status-bar" style="margin-bottom:16px">
+      <span class="status-text" id="vsStatus">กำลังเล่น</span>
+      <span class="status-badge badge-playing" id="vsBadge">VS</span>
+    </div>
+
+    <div class="timer-bar" id="timerBar">
+      <span class="timer-icon">⏱</span>
+      <span class="timer-text" id="timerText">3:00</span>
+      <div class="timer-progress"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+    </div>
+
+    <div class="score-area vs" style="margin-bottom:16px">
+      <div class="score-card active" id="myScoreCard">
+        <div class="score-label">คุณ</div>
+        <div class="score-value small" id="myScore">0</div>
+        <div class="player-name-label" id="myNameLabel">---</div>
+      </div>
+      <div class="vs-sep">VS</div>
+      <div class="score-card" id="theirScoreCard">
+        <div class="score-label">คู่ต่อสู้</div>
+        <div class="score-value small" id="theirScore">0</div>
+        <div class="player-name-label" id="theirNameLabel">---</div>
+      </div>
+    </div>
+
+    <div class="game-area vs-layout" id="vsBoardArea">
+      <div class="board-wrapper">
+        <div class="board-label mine">คุณ</div>
+        <div class="board" id="myBoard"></div>
+      </div>
+      <div class="board-wrapper">
+        <div class="board-label theirs">คู่ต่อสู้</div>
+        <div class="board small" id="theirBoard"></div>
+      </div>
+    </div>
+
+    <div id="chatContainer" style="margin-top:20px"></div>
+    <div style="margin-top:12px">
+      <button class="action-btn secondary" onclick="resetGame()">ออกจากห้อง</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER OVERLAY -->
+  <div class="game-over-overlay" id="gameOverOverlay" style="display:none">
+    <div class="game-over-card">
+      <div class="game-over-emoji" id="gameOverEmoji">🎉</div>
+      <div class="game-over-title" id="gameOverTitle">เยี่ยมมาก!</div>
+      <div class="game-over-score" id="gameOverScore">คะแนน: <strong>0</strong></div>
+      <button class="action-btn" onclick="dismissOverlay()">เล่นอีกครั้ง</button>
+      <button class="action-btn secondary" onclick="goHome()">กลับหน้าหลัก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let gameMode = null; // 'solo' | 'create' | 'join'
+let myName = 'ผู้เล่น';
+let roomId = null;
+let isHost = false;
+let myScore = 0;
+let theirScore = 0;
+let theirName = 'คู่ต่อสู้';
+let myBoard = null;    // 4×4 array
+let theirBoardData = null;
+let gameActive = false;
+let timerInterval = null;
+let timerSeconds = 180; // 3 minutes
+let channel = null;
+let gameChat = null;
+let touchStartX = 0;
+let touchStartY = 0;
+
+// ─── Grid helpers ─────────────────────────────────────────────────────────────
+function newGrid() {
+  return Array.from({ length: 4 }, () => Array(4).fill(0));
+}
+
+function addRandom(grid) {
+  const empties = [];
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 4; c++)
+      if (!grid[r][c]) empties.push([r, c]);
+  if (!empties.length) return false;
+  const [r, c] = empties[Math.floor(Math.random() * empties.length)];
+  grid[r][c] = Math.random() < 0.9 ? 2 : 4;
+  return true;
+}
+
+function slideRow(row) {
+  // Compress
+  let arr = row.filter(x => x);
+  let score = 0;
+  for (let i = 0; i < arr.length - 1; i++) {
+    if (arr[i] === arr[i + 1]) {
+      arr[i] *= 2;
+      score += arr[i];
+      arr.splice(i + 1, 1);
+    }
+  }
+  while (arr.length < 4) arr.push(0);
+  return { row: arr, score };
+}
+
+function moveGrid(grid, dir) {
+  let totalScore = 0;
+  let moved = false;
+  const g = grid.map(r => [...r]);
+
+  function processRows(g) {
+    let s = 0;
+    for (let r = 0; r < 4; r++) {
+      const res = slideRow(g[r]);
+      if (res.row.join() !== g[r].join()) moved = true;
+      g[r] = res.row;
+      s += res.score;
+    }
+    return s;
+  }
+
+  if (dir === 'left') {
+    totalScore = processRows(g);
+  } else if (dir === 'right') {
+    for (let r = 0; r < 4; r++) g[r].reverse();
+    totalScore = processRows(g);
+    for (let r = 0; r < 4; r++) g[r].reverse();
+  } else if (dir === 'up') {
+    // Transpose → left → transpose back
+    const t = transpose(g);
+    totalScore = processRows(t);
+    const tt = transpose(t);
+    for (let r = 0; r < 4; r++) g[r] = tt[r];
+  } else if (dir === 'down') {
+    const t = transpose(g);
+    for (let r = 0; r < 4; r++) t[r].reverse();
+    totalScore = processRows(t);
+    for (let r = 0; r < 4; r++) t[r].reverse();
+    const tt = transpose(t);
+    for (let r = 0; r < 4; r++) g[r] = tt[r];
+  }
+
+  return { grid: g, score: totalScore, moved };
+}
+
+function transpose(g) {
+  return g[0].map((_, c) => g.map(r => r[c]));
+}
+
+function canMove(grid) {
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 4; c++) {
+      if (!grid[r][c]) return true;
+      if (c < 3 && grid[r][c] === grid[r][c + 1]) return true;
+      if (r < 3 && grid[r][c] === grid[r + 1][c]) return true;
+    }
+  return false;
+}
+
+function has2048(grid) {
+  return grid.some(row => row.some(v => v >= 2048));
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function tileClass(v) {
+  if (!v) return 'tile tile-empty';
+  if (v <= 2048) return `tile tile-${v}`;
+  return 'tile tile-super';
+}
+
+function renderBoard(boardEl, grid) {
+  boardEl.innerHTML = '';
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 4; c++) {
+      const v = grid[r][c];
+      const d = document.createElement('div');
+      d.className = tileClass(v);
+      d.textContent = v || '';
+      boardEl.appendChild(d);
+    }
+}
+
+// ─── Solo Game ────────────────────────────────────────────────────────────────
+function startSolo() {
+  const name = document.getElementById('soloNameInput').value.trim() || 'ผู้เล่น';
+  myName = name;
+  gameMode = 'solo';
+  myScore = 0;
+  myBoard = newGrid();
+  addRandom(myBoard);
+  addRandom(myBoard);
+  gameActive = true;
+
+  show('soloGameScreen');
+  updateSoloBest();
+  renderBoard(document.getElementById('soloBoard'), myBoard);
+  updateSoloScore(0);
+}
+
+function updateSoloScore(pts) {
+  myScore += pts;
+  document.getElementById('soloScore').textContent = myScore;
+  const best = parseInt(localStorage.getItem('2048_best') || '0');
+  if (myScore > best) {
+    localStorage.setItem('2048_best', myScore);
+    document.getElementById('soloBest').textContent = myScore;
+  }
+}
+
+function updateSoloBest() {
+  document.getElementById('soloBest').textContent = localStorage.getItem('2048_best') || 0;
+}
+
+function soloMove(dir) {
+  if (!gameActive || gameMode !== 'solo') return;
+  const { grid, score, moved } = moveGrid(myBoard, dir);
+  if (!moved) return;
+  myBoard = grid;
+  updateSoloScore(score);
+  addRandom(myBoard);
+  renderBoard(document.getElementById('soloBoard'), myBoard);
+
+  if (has2048(myBoard)) {
+    endSolo('win');
+  } else if (!canMove(myBoard)) {
+    endSolo('lose');
+  }
+}
+
+async function endSolo(result) {
+  gameActive = false;
+  const isWin = result === 'win';
+  document.getElementById('gameOverEmoji').textContent = isWin ? '🎉' : '😔';
+  document.getElementById('gameOverTitle').textContent = isWin ? 'คุณได้ 2048!' : 'เกมจบแล้ว';
+  document.getElementById('gameOverScore').innerHTML = `คะแนน: <strong>${myScore}</strong>`;
+  document.getElementById('gameOverOverlay').style.display = 'flex';
+  await saveResult(result === 'win' ? 'win' : 'lose', 'AI');
+}
+
+// ─── VS Mode ──────────────────────────────────────────────────────────────────
+async function createRoom() {
+  const name = document.getElementById('createNameInput').value.trim() || 'ผู้เล่น';
+  myName = name;
+  gameMode = 'create';
+  isHost = true;
+  roomId = Math.random().toString(36).substr(2, 4).toUpperCase();
+
+  document.getElementById('displayRoomCode').textContent = roomId;
+  show('waitingScreen');
+  subscribeRoom();
+}
+
+async function joinRoom() {
+  const name = document.getElementById('joinNameInput').value.trim() || 'ผู้เล่น';
+  const code = document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if (!code || code.length < 4) { alert('กรุณาใส่รหัสห้อง 4 ตัว'); return; }
+  myName = name;
+  gameMode = 'join';
+  isHost = false;
+  roomId = code;
+  subscribeRoom();
+  // Announce join
+  setTimeout(() => sendMsg({ type: 'join', name: myName }), 500);
+}
+
+function subscribeRoom() {
+  channel = db.channel(`2048:${roomId}`, { config: { broadcast: { self: false } } });
+  channel.on('broadcast', { event: 'msg' }, ({ payload }) => handleMsg(payload)).subscribe();
+}
+
+function handleMsg(msg) {
+  switch (msg.type) {
+    case 'join':
+      if (isHost) {
+        theirName = msg.name;
+        startVS();
+        sendMsg({ type: 'start', hostName: myName });
+      }
+      break;
+    case 'start':
+      theirName = msg.hostName;
+      startVS();
+      break;
+    case 'score':
+      theirScore = msg.score;
+      document.getElementById('theirScore').textContent = theirScore;
+      updateLeadership();
+      break;
+    case 'board':
+      theirBoardData = msg.board;
+      if (document.getElementById('vsGameScreen').style.display !== 'none')
+        renderBoard(document.getElementById('theirBoard'), theirBoardData);
+      break;
+    case 'end':
+      // Opponent's game ended (board full)
+      if (gameActive) endVS(false);
+      break;
+  }
+}
+
+function sendMsg(payload) {
+  channel?.send({ type: 'broadcast', event: 'msg', payload });
+}
+
+function startVS() {
+  myScore = 0;
+  theirScore = 0;
+  myBoard = newGrid();
+  addRandom(myBoard);
+  addRandom(myBoard);
+  theirBoardData = newGrid();
+  gameActive = true;
+  timerSeconds = 180;
+
+  document.getElementById('vsRoomCode').textContent = roomId;
+  document.getElementById('myNameLabel').textContent = myName;
+  document.getElementById('theirNameLabel').textContent = theirName;
+  document.getElementById('myScore').textContent = 0;
+  document.getElementById('theirScore').textContent = 0;
+  document.getElementById('vsStatus').textContent = 'กำลังแข่ง!';
+  show('vsGameScreen');
+
+  renderBoard(document.getElementById('myBoard'), myBoard);
+  renderBoard(document.getElementById('theirBoard'), theirBoardData);
+  startTimer();
+
+  // Chat
+  if (!gameChat) {
+    gameChat = new GameChat({ roomId, myName, gameName: '2048', containerId: 'chatContainer' });
+    gameChat.mount();
+  }
+  gameChat?.gameEvent('start');
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerDisplay();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      endVS(true); // time up
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  const text = `${m}:${s.toString().padStart(2, '0')}`;
+  const el = document.getElementById('timerText');
+  const fill = document.getElementById('timerFill');
+  el.textContent = text;
+  const pct = (timerSeconds / 180) * 100;
+  fill.style.width = pct + '%';
+  const urgent = timerSeconds <= 30;
+  el.classList.toggle('urgent', urgent);
+  fill.classList.toggle('urgent', urgent);
+}
+
+function vsMove(dir) {
+  if (!gameActive || gameMode === 'solo') return;
+  const { grid, score, moved } = moveGrid(myBoard, dir);
+  if (!moved) return;
+  myBoard = grid;
+  myScore += score;
+  addRandom(myBoard);
+  renderBoard(document.getElementById('myBoard'), myBoard);
+  document.getElementById('myScore').textContent = myScore;
+  updateLeadership();
+  sendMsg({ type: 'score', score: myScore });
+  sendMsg({ type: 'board', board: myBoard });
+
+  if (!canMove(myBoard)) {
+    sendMsg({ type: 'end' });
+    endVS(false);
+  }
+}
+
+function updateLeadership() {
+  const myCard = document.getElementById('myScoreCard');
+  const theirCard = document.getElementById('theirScoreCard');
+  myCard.classList.remove('leading');
+  theirCard.classList.remove('leading');
+  if (myScore > theirScore) myCard.classList.add('leading');
+  else if (theirScore > myScore) theirCard.classList.add('leading');
+}
+
+async function endVS(isTimeUp) {
+  if (!gameActive) return;
+  gameActive = false;
+  clearInterval(timerInterval);
+  const iWin = myScore > theirScore;
+  const isDraw = myScore === theirScore;
+  const result = isDraw ? 'draw' : (iWin ? 'win' : 'lose');
+
+  gameChat?.gameEvent(result === 'win' ? 'win' : result === 'lose' ? 'lose' : 'draw');
+  await saveResult(result, theirName);
+
+  document.getElementById('gameOverEmoji').textContent = iWin ? '🏆' : (isDraw ? '🤝' : '😔');
+  document.getElementById('gameOverTitle').textContent =
+    iWin ? 'คุณชนะ!' : isDraw ? 'เสมอกัน!' : 'คุณแพ้!';
+  document.getElementById('gameOverScore').innerHTML =
+    `คะแนนคุณ: <strong>${myScore}</strong> | คู่ต่อสู้: ${theirScore}`;
+  document.getElementById('gameOverOverlay').style.display = 'flex';
+}
+
+// ─── Input handling ───────────────────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (!gameActive) return;
+  const map = {
+    'ArrowLeft': 'left', 'ArrowRight': 'right',
+    'ArrowUp': 'up', 'ArrowDown': 'down'
+  };
+  const dir = map[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  if (gameMode === 'solo') soloMove(dir);
+  else vsMove(dir);
+});
+
+document.addEventListener('touchstart', (e) => {
+  if (!gameActive) return;
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  if (!gameActive) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const absDx = Math.abs(dx), absDy = Math.abs(dy);
+  if (Math.max(absDx, absDy) < 30) return;
+  let dir;
+  if (absDx > absDy) dir = dx > 0 ? 'right' : 'left';
+  else dir = dy > 0 ? 'down' : 'up';
+  if (gameMode === 'solo') soloMove(dir);
+  else vsMove(dir);
+}, { passive: true });
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+function show(id) {
+  ['setupScreen','soloNameScreen','createRoomScreen','joinRoomScreen',
+   'waitingScreen','soloGameScreen','vsGameScreen'].forEach(s => {
+    document.getElementById(s).style.display = 'none';
+  });
+  document.getElementById(id).style.display = '';
+}
+
+function showSetup() { show('setupScreen'); }
+function showSoloSetup() { show('soloNameScreen'); }
+function showCreateRoom() { show('createRoomScreen'); }
+function showJoinRoom() { show('joinRoomScreen'); }
+
+function copyCode() {
+  navigator.clipboard.writeText(roomId || '').then(() => {
+    const btn = document.querySelector('.copy-code-btn');
+    const orig = btn.textContent;
+    btn.textContent = 'คัดลอกแล้ว!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+
+function dismissOverlay() {
+  document.getElementById('gameOverOverlay').style.display = 'none';
+  if (gameMode === 'solo') {
+    startSolo();
+  } else {
+    resetGame();
+  }
+}
+
+function goHome() {
+  window.location.href = '../index.html';
+}
+
+function resetGame() {
+  gameActive = false;
+  clearInterval(timerInterval);
+  if (channel) { channel.unsubscribe(); channel = null; }
+  if (gameChat) { gameChat.destroy?.(); gameChat = null; }
+  document.getElementById('gameOverOverlay').style.display = 'none';
+  show('setupScreen');
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession();
+    if (!data.session) return;
+    await db.from('game_results').insert({
+      player_name: myName,
+      game: '2048',
+      result,
+      opponent,
+      user_id: data.session.user.id
+    });
+  } catch (_) {}
+}
+</script>
+</body>
+</html>
