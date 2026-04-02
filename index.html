@@ -328,23 +328,71 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// type: 'coming-soon' | 'vs-ai' (AI+create+join) | 'multi' (create+join) | 'solo-vs' (solo+vs)
 const games = {
-  chess:         { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI หลายระดับ' },
-  tictactoe:     { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI' },
-  uno:           { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!' },
-  battleship:    { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน' },
-  '2048':        { emoji:'🔢', name:'2048',           desc:'รวมตัวเลขให้ถึง 2048 — Solo หรือ VS 3 นาที' },
-  gomoku:        { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน' },
-  checkers:      { emoji:'🔴', name:'หมากฮอส',       desc:'Checkers คลาสสิก — กินหมาก, ต่อเนื่อง, ปั้นขุน' },
-  'connect-four':{ emoji:'🔵', name:'Connect Four',  desc:'วางหมาก 4 ตัวในแนวเดียวกันก่อนฝ่ายตรงข้าม' },
+  chess:         { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI', type:'coming-soon' },
+  tictactoe:     { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI', type:'vs-ai' },
+  uno:           { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!', type:'multi' },
+  battleship:    { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน', type:'vs-ai' },
+  '2048':        { emoji:'🔢', name:'2048',           desc:'รวมตัวเลขให้ถึง 2048 — Solo หรือ VS 3 นาที', type:'solo-vs' },
+  gomoku:        { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน', type:'vs-ai' },
+  checkers:      { emoji:'🔴', name:'หมากฮอส',       desc:'Checkers คลาสสิก — กินหมาก, ต่อเนื่อง, ปั้นขุน', type:'vs-ai' },
+  'connect-four':{ emoji:'🔵', name:'Connect Four',  desc:'วางหมาก 4 ตัวในแนวเดียวกันก่อนฝ่ายตรงข้าม', type:'vs-ai' },
 };
 let currentGame = null;
+
+const modalTemplates = {
+  'coming-soon': `
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:48px;margin-bottom:12px">🚧</div>
+      <div style="font-family:var(--font-display);font-size:22px;margin-bottom:8px">เร็วๆ นี้!</div>
+      <div style="color:var(--muted);font-size:14px">เกมนี้กำลังอยู่ในระหว่างพัฒนา</div>
+    </div>`,
+  'vs-ai': `
+    <button class="mode-btn" onclick="startGame('vs-ai')">
+      <div class="mode-btn-title">🤖 เล่นกับ AI</div>
+      <div class="mode-btn-sub">ฝึกฝีมือกับ Claude AI</div>
+    </button>
+    <button class="mode-btn" onclick="startGame('vs-friend')">
+      <div class="mode-btn-title">👥 สร้างห้องเชิญเพื่อน</div>
+      <div class="mode-btn-sub">สร้างห้อง แล้วส่ง code ให้เพื่อน</div>
+    </button>
+    <button class="mode-btn" onclick="startGame('join')">
+      <div class="mode-btn-title">🔑 เข้าร่วมห้อง</div>
+      <div class="mode-btn-sub">มี room code แล้ว กรอกเพื่อเข้าร่วม</div>
+    </button>`,
+  'multi': `
+    <button class="mode-btn" onclick="startGame('vs-friend')">
+      <div class="mode-btn-title">👥 สร้างห้อง (2-6 คน)</div>
+      <div class="mode-btn-sub">สร้างห้อง แล้วส่ง code ให้เพื่อน</div>
+    </button>
+    <button class="mode-btn" onclick="startGame('join')">
+      <div class="mode-btn-title">🔑 เข้าร่วมห้อง</div>
+      <div class="mode-btn-sub">มี room code แล้ว กรอกเพื่อเข้าร่วม</div>
+    </button>`,
+  'solo-vs': `
+    <button class="mode-btn" onclick="startGame('solo')">
+      <div class="mode-btn-title">🧩 Solo Mode</div>
+      <div class="mode-btn-sub">เล่นคนเดียว ลุ้นทำ 2048</div>
+    </button>
+    <button class="mode-btn" onclick="startGame('vs-friend')">
+      <div class="mode-btn-title">⚔️ VS Mode — สร้างห้อง</div>
+      <div class="mode-btn-sub">แข่งกับเพื่อนใน 3 นาที ใครแต้มสูงกว่าชนะ</div>
+    </button>
+    <button class="mode-btn" onclick="startGame('join')">
+      <div class="mode-btn-title">🔑 เข้าร่วมห้อง VS</div>
+      <div class="mode-btn-sub">มี room code แล้ว กรอกเพื่อเข้าร่วม</div>
+    </button>`,
+}
+
 function openGame(id) {
   currentGame = id;
   const g = games[id];
+  if (!g) { showToast('เกมนี้ยังไม่พร้อม เร็วๆ นี้!'); return; }
   document.getElementById('modalEmoji').textContent = g.emoji;
   document.getElementById('modalTitle').textContent = g.name;
   document.getElementById('modalDesc').textContent = g.desc;
+  document.querySelector('#gameModal .modal-options').innerHTML = modalTemplates[g.type] || modalTemplates['vs-ai'];
   openModal('gameModal');
 }
 function startGame(mode) {
@@ -368,6 +416,8 @@ function startGame(mode) {
     window.location.href = url + '?mode=join'
   } else if (mode === 'vs-ai') {
     window.location.href = url + '?mode=ai'
+  } else if (mode === 'solo') {
+    window.location.href = url + '?mode=solo'
   }
 }
 function joinRoom() {
@@ -380,6 +430,26 @@ function copyCode() {
   const code = document.getElementById('roomCode').textContent;
   navigator.clipboard.writeText(code).then(() => showToast('คัดลอก ' + code + ' แล้ว! ✓'));
 }
+// ── Filter toggle ────────────────────────────────────────────────
+let activeFilter = 'all'
+function filterGames(tag, btn) {
+  if (activeFilter === tag && tag !== 'all') {
+    // Tap same filter again → reset to all
+    activeFilter = 'all'
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+    document.querySelector('.filter-btn').classList.add('active') // first btn = "ทั้งหมด"
+  } else {
+    activeFilter = tag
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+  }
+  document.querySelectorAll('.game-card').forEach(card => {
+    const tags = card.dataset.tags || ''
+    const show = activeFilter === 'all' || tags.split(' ').includes(activeFilter)
+    card.style.display = show ? '' : 'none'
+  })
+}
+
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(el => {
