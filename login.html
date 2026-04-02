@@ -70,6 +70,13 @@
   .main-screen { display: block; }
   .main-screen.hide { display: none; }
 
+  /* Referral notice */
+  .notice-banner { background: linear-gradient(135deg, rgba(124,106,245,0.12), rgba(124,106,245,0.06)); border: 1px solid rgba(124,106,245,0.3); border-radius: 14px; padding: 14px 18px; margin-bottom: 24px; display: none; }
+  .notice-banner.show { display: flex; align-items: flex-start; gap: 12px; }
+  .notice-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .notice-text { font-size: 13px; line-height: 1.6; color: var(--muted); }
+  .notice-text strong { color: var(--accent2); font-family: var(--font-ui); font-weight: 700; display: block; margin-bottom: 2px; }
+
   @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 </style>
 </head>
@@ -79,6 +86,15 @@
 
 <div class="card">
   <div class="logo"><span class="logo-dot"></span>GameRoom</div>
+
+  <!-- Referral notice (shown when redirected from leaderboard/profile) -->
+  <div class="notice-banner" id="noticeBanner">
+    <span class="notice-icon">🏆</span>
+    <div class="notice-text">
+      <strong id="noticeTitle">เข้าสู่ระบบเพื่อดูประวัติส่วนตัว</strong>
+      <span id="noticeSub">ผลการเล่นและสถิติของคุณจะถูกบันทึกและแสดงใน Leaderboard</span>
+    </div>
+  </div>
 
   <!-- Main screen -->
   <div class="main-screen" id="mainScreen">
@@ -161,6 +177,21 @@
 
 <script>
 // db มาจาก js/supabase.js ที่โหลดไว้แล้ว
+
+// แสดง notice banner ตาม ?ref= param
+;(function() {
+  const ref = new URLSearchParams(location.search).get('ref')
+  const msgs = {
+    history:  { title: '🏆 เข้าสู่ระบบเพื่อดูประวัติส่วนตัว', sub: 'บันทึกผลเกมและดูสถิติของคุณใน Leaderboard' },
+    profile:  { title: '👤 เข้าสู่ระบบเพื่อจัดการโปรไฟล์', sub: 'แก้ไขชื่อและรูป avatar ของคุณได้เลย' },
+    game:     { title: '🎮 เข้าสู่ระบบเพื่อบันทึกผลเกม', sub: 'ผลการชนะ/แพ้จะถูกบันทึกให้คุณอัตโนมัติ' },
+  }
+  if (msgs[ref]) {
+    document.getElementById('noticeBanner').classList.add('show')
+    document.getElementById('noticeTitle').textContent = msgs[ref].title
+    document.getElementById('noticeSub').textContent = msgs[ref].sub
+  }
+})()
 
 // เช็คว่า login อยู่แล้วไหม
 db.auth.getSession().then(({ data }) => {
