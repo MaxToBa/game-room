@@ -85,6 +85,9 @@
 <div class="blob blob-2"></div>
 
 <div class="card">
+  <!-- Logo placeholder — replace with: <img src="logo.png" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 24px;display:block"> -->
+  <div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:14px;color:var(--bg);margin:0 auto 20px;font-weight:700;letter-spacing:1px;">LOGO</div>
+
   <div class="logo"><span class="logo-dot"></span>GameRoom</div>
 
   <!-- Referral notice (shown when redirected from leaderboard/profile) -->
@@ -200,15 +203,21 @@ db.auth.getSession().then(({ data }) => {
   }
 })
 
-// เช็ค Google callback
+// Redirect back to the page that triggered login (or index)
+function getRedirectUrl() {
+  const saved = localStorage.getItem('redirectAfterLogin')
+  localStorage.removeItem('redirectAfterLogin')
+  return saved || 'index.html'
+}
+
+// เช็ค Google/Discord callback
 db.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session) {
-    // บันทึกชื่อจาก Google
     const name = session.user.user_metadata?.full_name?.split(' ')[0] || session.user.email.split('@')[0]
     localStorage.setItem('playerName', name)
     localStorage.setItem('playerEmail', session.user.email)
     localStorage.setItem('isGuest', 'false')
-    window.location.href = 'index.html'
+    window.location.href = getRedirectUrl()
   }
 })
 
@@ -243,7 +252,7 @@ async function handleLogin() {
   localStorage.setItem('playerName', name)
   localStorage.setItem('playerEmail', email)
   localStorage.setItem('isGuest', 'false')
-  window.location.href = 'index.html'
+  window.location.href = getRedirectUrl()
 }
 
 async function handleRegister() {
@@ -311,7 +320,7 @@ function handleGuest() {
   if (!name) { alert('กรุณาใส่ชื่อก่อนนะครับ'); return; }
   localStorage.setItem('playerName', name)
   localStorage.setItem('isGuest', 'true')
-  window.location.href = 'index.html'
+  window.location.href = getRedirectUrl()
 }
 
 function showError(el, msg) {
