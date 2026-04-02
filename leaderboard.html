@@ -48,13 +48,14 @@
   /* Table */
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; }
   .table-header { display: grid; padding: 14px 20px; border-bottom: 1px solid var(--border); font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
-  .table-header.lb-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
+  .table-header.lb-grid { grid-template-columns: 48px 1fr 70px 70px 70px 80px; }
   .table-header.hist-grid { grid-template-columns: 1fr 100px 90px 130px; }
   .table-row { display: grid; padding: 14px 20px; border-bottom: 1px solid var(--border); align-items: center; transition: background 0.15s; }
   .table-row:last-child { border-bottom: none; }
   .table-row:hover { background: rgba(255,255,255,0.02); }
-  .table-row.lb-grid { grid-template-columns: 48px 1fr 80px 80px 80px; }
+  .table-row.lb-grid { grid-template-columns: 48px 1fr 70px 70px 70px 80px; }
   .table-row.hist-grid { grid-template-columns: 1fr 100px 90px 130px; }
+  .winrate-val { font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--accent); }
   .rank-num { font-family: var(--font-display); font-size: 18px; color: var(--muted); }
   .rank-num.top { color: var(--accent); }
   .player-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -113,7 +114,7 @@
   .fade-up { animation: fadeUp 0.4s ease both; }
   @media (max-width: 600px) {
     .top3 { grid-template-columns: 1fr; }
-    .table-header.lb-grid, .table-row.lb-grid { grid-template-columns: 40px 1fr 60px 60px; }
+    .table-header.lb-grid, .table-row.lb-grid { grid-template-columns: 40px 1fr 60px 60px 70px; }
     .table-header.lb-grid .hide-mobile, .table-row.lb-grid .hide-mobile { display: none; }
     .table-header.hist-grid, .table-row.hist-grid { grid-template-columns: 1fr 80px 90px; }
     .table-header.hist-grid .hide-mobile, .table-row.hist-grid .hide-mobile { display: none; }
@@ -158,6 +159,7 @@
         <div>ชนะ</div>
         <div>แพ้</div>
         <div class="hide-mobile">เสมอ</div>
+        <div>Win%</div>
       </div>
       <div id="leaderboardList"><div class="loading">กำลังโหลด...</div></div>
     </div>
@@ -293,7 +295,10 @@ function renderLeaderboard() {
     list.innerHTML = `<div class="empty-state"><span class="empty-icon">🎮</span><div class="empty-text">ยังไม่มีข้อมูล เริ่มเล่นเกมก่อนนะ!</div></div>`
     return
   }
-  list.innerHTML = stats.map((p, i) => `
+  list.innerHTML = stats.map((p, i) => {
+    const total = p.wins + p.losses + p.draws
+    const wr = total > 0 ? Math.round((p.wins / total) * 100) : 0
+    return `
     <div class="table-row lb-grid">
       <div class="rank-num ${i < 3 ? 'top' : ''}">${i + 1}</div>
       <div class="player-info">
@@ -303,8 +308,9 @@ function renderLeaderboard() {
       <div class="stat wins">${p.wins}</div>
       <div class="stat losses">${p.losses}</div>
       <div class="stat draws hide-mobile">${p.draws}</div>
-    </div>
-  `).join('')
+      <div class="winrate-val">${wr}%</div>
+    </div>`
+  }).join('')
 }
 
 function filterGame(game, btn) {
