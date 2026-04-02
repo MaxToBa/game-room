@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>หมากฮอก — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/chat.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e; --red: #f05a5a;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+    --dark-sq: #3d2a1a; --light-sq: #a07040;
+    --red-piece: #e74c3c; --black-piece: #2c2c3a;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 400px; height: 400px; background: rgba(231,76,60,0.08); top: -100px; right: -100px; }
+  .blob-2 { width: 300px; height: 300px; background: rgba(44,44,58,0.3); bottom: 0; left: -80px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .game-title { font-family: var(--font-display); font-size: 24px; }
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .status-text { font-size: 14px; font-weight: 600; }
+  .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .badge-waiting { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-win { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .players-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; text-align: center; transition: all 0.3s; }
+  .player-card.active { border-color: var(--accent2); box-shadow: 0 0 20px rgba(124,106,245,0.2); }
+  .player-piece-icon { font-size: 28px; margin-bottom: 4px; }
+  .player-name { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-count { font-family: var(--font-display); font-size: 16px; color: var(--accent); }
+  .vs-text { font-family: var(--font-display); font-size: 18px; color: var(--muted); text-align: center; }
+  .player-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: #fff; margin: 0 auto 5px; overflow: hidden; flex-shrink: 0; }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Board */
+  .board-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .board { display: grid; grid-template-columns: repeat(8, 1fr); border: 3px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; max-width: 480px; margin: 0 auto; }
+  .sq { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: default; position: relative; transition: background 0.15s; }
+  .sq.dark { background: var(--dark-sq); }
+  .sq.light { background: var(--light-sq); }
+  .sq.dark.can-move { cursor: pointer; }
+  .sq.dark.can-move:hover { background: #5a3d28; }
+  .sq.dark.selected { background: rgba(232,197,71,0.4); }
+  .sq.dark.valid-target { background: rgba(79,207,142,0.35); cursor: pointer; }
+  .sq.dark.valid-target:hover { background: rgba(79,207,142,0.55); }
+
+  /* Pieces */
+  .piece { width: 78%; height: 78%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.15); user-select: none; }
+  .piece.red { background: radial-gradient(circle at 35% 35%, #ff6b6b, #c0392b); border: 2px solid #a93226; }
+  .piece.blk { background: radial-gradient(circle at 35% 35%, #555, #1a1a2e); border: 2px solid #333; }
+  .piece.king { box-shadow: 0 3px 8px rgba(0,0,0,0.5), 0 0 12px rgba(232,197,71,0.6), inset 0 2px 4px rgba(255,255,255,0.15); border: 2px solid var(--accent); }
+  .piece.selected-piece { transform: scale(1.15); box-shadow: 0 6px 16px rgba(0,0,0,0.6), 0 0 16px rgba(232,197,71,0.8); }
+
+  /* Action buttons */
+  .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 13px; border-radius: 14px; font-family: var(--font-ui); font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+  .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); }
+  .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .room-code-label { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 3px; }
+  .room-code-text { font-family: var(--font-display); font-size: 22px; letter-spacing: 4px; color: var(--accent); }
+  .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
+  .ai-thinking { display: none; align-items: center; gap: 10px; justify-content: center; padding: 10px; color: var(--muted); font-size: 14px; font-family: var(--font-ui); }
+  .ai-thinking.show { display: flex; }
+  .dot-pulse { display: flex; gap: 4px; }
+  .dot-pulse span { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  .setup-screen { text-align: center; padding: 20px 0; }
+  .setup-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 8px; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-options { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .mode-card-sub { font-size: 13px; color: var(--muted); }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
+  .coin-flip { text-align: center; padding: 32px 0; }
+  .coin { font-size: 64px; display: block; margin-bottom: 16px; animation: spin 0.6s ease-in-out; }
+  .coin-text { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .coin-sub { color: var(--muted); font-size: 14px; }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 200; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+  @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(720deg); } }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="container">
+  <div class="top-bar">
+    <a href="../index.html" class="back-btn">← กลับ</a>
+    <div class="game-title">♟ หมากฮอก</div>
+    <div style="width:80px"></div>
+  </div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen fade-in">
+    <div class="setup-title">เลือกโหมด</div>
+    <div class="setup-sub">กินหมากฝ่ายตรงข้ามให้หมด!</div>
+    <div class="setup-options">
+      <div class="mode-card" onclick="showNameScreen('ai')">
+        <div class="mode-card-title">🤖 เล่นกับ AI</div>
+        <div class="mode-card-sub">ท้าทาย AI ด้วยกลยุทธ์ minimax</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('create')">
+        <div class="mode-card-title">👥 สร้างห้องเชิญเพื่อน</div>
+        <div class="mode-card-sub">สร้าง room code แล้วส่งให้เพื่อน</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('join')">
+        <div class="mode-card-title">🔑 เข้าร่วมห้อง</div>
+        <div class="mode-card-sub">มี room code จากเพื่อนแล้ว กรอกเพื่อเข้าเลย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Name Screen -->
+  <div id="nameScreen" style="display:none" class="name-screen fade-in">
+    <div class="setup-title" style="text-align:center;margin-bottom:8px">ใส่ชื่อของคุณ</div>
+    <div class="setup-sub" style="text-align:center">ชื่อนี้จะแสดงให้เพื่อนเห็น</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="nameInput" placeholder="เช่น MaxToBa" maxlength="16">
+    </div>
+    <div id="joinCodeGroup" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Room Code</label>
+        <input class="form-input code-input" id="joinInput" placeholder="AB3X9K" maxlength="6">
+      </div>
+    </div>
+    <button class="action-btn" onclick="handleNameNext()">ถัดไป →</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Coin Flip -->
+  <div id="coinScreen" style="display:none" class="coin-flip fade-in">
+    <span class="coin" id="coinEmoji">🪙</span>
+    <div class="coin-text" id="coinText">สุ่มว่าใครไปก่อน...</div>
+    <div class="coin-sub" id="coinSub">กำลังโยนเหรียญ</div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" style="display:none" class="fade-in">
+    <div class="room-info" id="roomInfo" style="display:none">
+      <div>
+        <div class="room-code-label">Room Code</div>
+        <div class="room-code-text" id="roomCodeDisplay">—</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
+    </div>
+    <div class="status-bar">
+      <div class="status-text" id="statusText">กำลังโหลด...</div>
+      <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
+    </div>
+    <div class="players-bar">
+      <div class="player-card" id="p1Card">
+        <div class="player-avatar" id="p1Avatar"><span>?</span></div>
+        <div class="player-piece-icon">🔴</div>
+        <div class="player-name" id="p1Name">ผู้เล่น 1</div>
+        <div class="player-count" id="p1Count">12</div>
+      </div>
+      <div class="vs-text">vs</div>
+      <div class="player-card" id="p2Card">
+        <div class="player-avatar" id="p2Avatar"><span>?</span></div>
+        <div class="player-piece-icon">⚫</div>
+        <div class="player-name" id="p2Name">ผู้เล่น 2</div>
+        <div class="player-count" id="p2Count">12</div>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="ai-thinking" id="aiThinking">
+      <span>AI กำลังคิด</span>
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+    </div>
+    <div id="chatContainer" style="display:none;margin-bottom:8px"></div>
+    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:4px">🔄 เล่นใหม่</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Board Representation ────────────────────────────────────
+// board[r][c]: null | { color: 'red'|'blk', king: bool }
+// Red moves UP (from row 7 toward row 0)
+// Black moves DOWN (from row 0 toward row 7)
+// Red player = player 0 (host or first player)
+// Black player = player 1 (AI or guest)
+
+let board = []
+let currentTurn = 'red'   // 'red' | 'blk'
+let myColor = 'red'
+let gameMode = null
+let roomId = null
+let isHost = false
+let realtimeChannel = null
+let pendingMode = null
+let gameOver = false
+let selectedCell = null   // {r,c} selected piece
+let validMoves = []       // [{from,to,captured}]
+let mustJump = false      // if any jump available, must take it
+let chainJump = null      // {r,c} piece mid-chain-capture
+let myName = ''
+let myAvatarUrl = null
+let oppName = 'AI'
+let oppAvatarUrl = null
+let gameChat = null
+
+// ─── Profile ────────────────────────────────────────────────
+async function loadMyProfile() {
+  try {
+    const { data } = await db.auth.getSession()
+    if (data.session) {
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0]
+      myAvatarUrl = meta.avatar_url || null
+      const { data: profile } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle()
+      const name = profile?.username || defaultName
+      if (profile?.avatar_url) myAvatarUrl = profile.avatar_url
+      document.getElementById('nameInput').value = name
+      return
+    }
+  } catch (_) {}
+  const saved = localStorage.getItem('playerName')
+  if (saved) document.getElementById('nameInput').value = saved
+}
+
+function setAvatar(elId, url, name) {
+  const el = document.getElementById(elId)
+  if (!el) return
+  const initial = (name || '?')[0].toUpperCase()
+  el.innerHTML = url
+    ? `<img src="${url}" alt="${initial}" onerror="this.parentElement.innerHTML='<span>${initial}</span>'">`
+    : `<span>${initial}</span>`
+}
+
+// ─── Screens ─────────────────────────────────────────────────
+function showScreen(id) {
+  ['setupScreen','nameScreen','coinScreen','gameScreen'].forEach(s => {
+    document.getElementById(s).style.display = 'none'
+  })
+  document.getElementById(id).style.display = 'block'
+}
+
+function showNameScreen(mode) {
+  pendingMode = mode
+  document.getElementById('joinCodeGroup').style.display = mode === 'join' ? 'block' : 'none'
+  document.getElementById('nameInput').value = ''
+  document.getElementById('joinInput').value = ''
+  showScreen('nameScreen')
+  loadMyProfile()
+}
+
+function handleNameNext() {
+  const name = document.getElementById('nameInput').value.trim()
+  if (!name) { showToast('กรุณาใส่ชื่อก่อนนะครับ'); return }
+  myName = name
+  gameMode = pendingMode
+  if (pendingMode === 'ai') {
+    showCoinFlip()
+  } else if (pendingMode === 'create') {
+    roomId = Math.random().toString(36).substring(2, 8).toUpperCase()
+    isHost = true
+    showCoinFlip()
+  } else {
+    const code = document.getElementById('joinInput').value.trim().toUpperCase()
+    if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return }
+    roomId = code
+    isHost = false
+    startOnlineGame()
+  }
+}
+
+function showCoinFlip() {
+  showScreen('coinScreen')
+  const goFirst = Math.random() < 0.5
+  document.getElementById('coinEmoji').textContent = '🪙'
+  document.getElementById('coinText').textContent = 'กำลังโยนเหรียญ...'
+  setTimeout(() => {
+    if (goFirst) {
+      myColor = 'red'
+      document.getElementById('coinEmoji').textContent = '🔴'
+      document.getElementById('coinText').textContent = `${myName} ได้หมากแดง!`
+      document.getElementById('coinSub').textContent = 'คุณเดินก่อน'
+    } else {
+      myColor = 'blk'
+      document.getElementById('coinEmoji').textContent = '⚫'
+      document.getElementById('coinText').textContent = `${myName} ได้หมากดำ!`
+      document.getElementById('coinSub').textContent = 'ฝ่ายตรงข้ามเดินก่อน'
+    }
+    setTimeout(() => {
+      if (gameMode === 'ai') startVsAI()
+      else startOnlineGame()
+    }, 1500)
+  }, 1200)
+}
+
+// ─── Init Board ───────────────────────────────────────────────
+function initBoard() {
+  board = Array(8).fill(null).map(() => Array(8).fill(null))
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if ((r + c) % 2 === 1) {
+        if (r < 3) board[r][c] = { color: 'blk', king: false }
+        else if (r > 4) board[r][c] = { color: 'red', king: false }
+      }
+    }
+  }
+  currentTurn = 'red'
+  selectedCell = null
+  validMoves = []
+  mustJump = false
+  chainJump = null
+  gameOver = false
+}
+
+// ─── Move Generation ──────────────────────────────────────────
+function getMoves(b, color) {
+  const jumps = [], moves = []
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = b[r][c]
+      if (!p || p.color !== color) continue
+      const dirs = getDirections(p)
+      // Check jumps first
+      for (const [dr, dc] of dirs) {
+        const mr = r + dr, mc = c + dc
+        const lr = r + 2*dr, lc = c + 2*dc
+        if (lr < 0 || lr > 7 || lc < 0 || lc > 7) continue
+        const mid = b[mr]?.[mc]
+        if (mid && mid.color !== color && !b[lr][lc]) {
+          jumps.push({ from: {r,c}, to: {r:lr,c:lc}, captured: {r:mr,c:mc} })
+        }
+      }
+      if (jumps.length === 0) {
+        for (const [dr, dc] of dirs) {
+          const nr = r + dr, nc = c + dc
+          if (nr < 0 || nr > 7 || nc < 0 || nc > 7) continue
+          if (!b[nr][nc]) moves.push({ from: {r,c}, to: {r:nr,c:nc}, captured: null })
+        }
+      }
+    }
+  }
+  return jumps.length > 0 ? { moves: jumps, mustJump: true } : { moves, mustJump: false }
+}
+
+function getDirections(piece) {
+  if (piece.king) return [[-1,-1],[-1,1],[1,-1],[1,1]]
+  return piece.color === 'red' ? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]
+}
+
+function getChainJumps(b, r, c) {
+  const p = b[r][c]
+  if (!p) return []
+  const jumps = []
+  for (const [dr, dc] of getDirections(p)) {
+    const mr = r + dr, mc = c + dc
+    const lr = r + 2*dr, lc = c + 2*dc
+    if (lr < 0 || lr > 7 || lc < 0 || lc > 7) continue
+    const mid = b[mr]?.[mc]
+    if (mid && mid.color !== p.color && !b[lr][lc]) {
+      jumps.push({ from: {r,c}, to: {r:lr,c:lc}, captured: {r:mr,c:mc} })
+    }
+  }
+  return jumps
+}
+
+// ─── Apply Move ───────────────────────────────────────────────
+function applyMove(b, move) {
+  const { from, to, captured } = move
+  const piece = { ...b[from.r][from.c] }
+  b[from.r][from.c] = null
+  if (captured) b[captured.r][captured.c] = null
+  // Check king promotion
+  if ((piece.color === 'red' && to.r === 0) || (piece.color === 'blk' && to.r === 7)) {
+    piece.king = true
+  }
+  b[to.r][to.c] = piece
+  return b
+}
+
+// ─── VS AI ──────────────────────────────────────────────────
+function startVsAI() {
+  oppName = 'AI 🤖'
+  oppAvatarUrl = null
+  initBoard()
+  showGameScreen()
+  renderAll()
+  if (currentTurn !== myColor) setTimeout(doAITurn, 800)
+}
+
+// ─── Online ───────────────────────────────────────────────────
+function startOnlineGame() {
+  realtimeChannel?.unsubscribe()
+  realtimeChannel = db.channel(`checkers:${roomId}`)
+    .on('broadcast', { event: 'chk' }, ({ payload }) => handleOnlineEvent(payload))
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        if (isHost) {
+          document.getElementById('roomInfo').style.display = 'flex'
+          document.getElementById('roomCodeDisplay').textContent = roomId
+          showScreen('gameScreen')
+          setStatus('รอเพื่อนเข้าห้อง...', 'badge-waiting')
+        } else {
+          await realtimeChannel.send({
+            type: 'broadcast', event: 'chk',
+            payload: { type: 'join', name: myName, avatar: myAvatarUrl }
+          })
+        }
+      }
+    })
+}
+
+async function handleOnlineEvent(payload) {
+  if (payload.type === 'join' && isHost) {
+    oppName = payload.name || 'เพื่อน'
+    oppAvatarUrl = payload.avatar || null
+    myColor = 'red'
+    initBoard()
+    showGameScreen()
+    renderAll()
+    await broadcastState('start')
+  }
+  if (payload.type === 'start' && !isHost) {
+    myColor = 'blk'
+    oppName = payload.hostName || 'เพื่อน'
+    oppAvatarUrl = payload.hostAvatar || null
+    applyRemoteState(payload)
+    showGameScreen()
+    renderAll()
+    showToast('เกมเริ่มแล้ว!')
+  }
+  if (payload.type === 'state') {
+    applyRemoteState(payload)
+    renderAll()
+  }
+}
+
+async function broadcastState(type = 'state') {
+  if (!realtimeChannel) return
+  await realtimeChannel.send({
+    type: 'broadcast', event: 'chk',
+    payload: { type, board, currentTurn, gameOver, hostName: myName, hostAvatar: myAvatarUrl }
+  })
+}
+
+function applyRemoteState(payload) {
+  board = payload.board
+  currentTurn = payload.currentTurn
+  gameOver = payload.gameOver || false
+  selectedCell = null
+  validMoves = []
+  chainJump = null
+  mustJump = false
+}
+
+// ─── Show Game Screen ─────────────────────────────────────────
+function showGameScreen() {
+  showScreen('gameScreen')
+  if (gameMode !== 'ai') {
+    document.getElementById('roomInfo').style.display = 'flex'
+    document.getElementById('roomCodeDisplay').textContent = roomId
+    if (gameChat) { gameChat.destroy(); gameChat = null }
+    const chatEl = document.getElementById('chatContainer')
+    chatEl.style.display = 'block'
+    chatEl.innerHTML = ''
+    gameChat = new GameChat({ roomId, myName, myAvatar: myAvatarUrl, gameName: 'checkers', container: chatEl })
+    gameChat.mount()
+  } else {
+    document.getElementById('roomInfo').style.display = 'none'
+  }
+  // Player cards
+  const redName = myColor === 'red' ? myName : oppName
+  const blkName = myColor === 'blk' ? myName : oppName
+  document.getElementById('p1Name').textContent = redName
+  document.getElementById('p2Name').textContent = blkName
+  setAvatar('p1Avatar', myColor === 'red' ? myAvatarUrl : oppAvatarUrl, redName)
+  setAvatar('p2Avatar', myColor === 'blk' ? myAvatarUrl : oppAvatarUrl, blkName)
+}
+
+// ─── Interaction ──────────────────────────────────────────────
+function clickSquare(r, c) {
+  if (gameOver || currentTurn !== myColor) return
+  if (gameMode !== 'ai' && currentTurn !== myColor) return
+
+  // Chain jump: only the piece mid-capture can move
+  if (chainJump && (chainJump.r !== r || chainJump.c !== c)) {
+    const target = validMoves.find(m => m.to.r === r && m.to.c === c)
+    if (target) { executeMove(target); return }
+    return
+  }
+
+  const piece = board[r]?.[c]
+  // Select own piece
+  if (piece && piece.color === myColor) {
+    selectedCell = { r, c }
+    const { moves, mustJump: mj } = getMoves(board, myColor)
+    mustJump = mj
+    validMoves = moves.filter(m => m.from.r === r && m.from.c === c)
+    if (mustJump) validMoves = validMoves.filter(m => m.captured)
+    renderBoard()
+    return
+  }
+
+  // Move to valid target
+  if (selectedCell) {
+    const move = validMoves.find(m => m.to.r === r && m.to.c === c)
+    if (move) { executeMove(move); return }
+    // Deselect
+    selectedCell = null; validMoves = []
+    renderBoard()
+  }
+}
+
+async function executeMove(move) {
+  applyMove(board, move)
+  selectedCell = null
+
+  // Chain jump?
+  if (move.captured) {
+    const chains = getChainJumps(board, move.to.r, move.to.c)
+    if (chains.length > 0) {
+      chainJump = { r: move.to.r, c: move.to.c }
+      selectedCell = { r: move.to.r, c: move.to.c }
+      validMoves = chains
+      renderAll()
+      if (gameMode !== 'ai') await broadcastState()
+      return
+    }
+  }
+
+  chainJump = null
+  validMoves = []
+  currentTurn = currentTurn === 'red' ? 'blk' : 'red'
+
+  const winner = checkWinner()
+  if (winner) {
+    await endGame(winner === myColor)
+    renderAll()
+    if (gameMode !== 'ai') await broadcastState()
+    return
+  }
+
+  renderAll()
+  if (gameMode !== 'ai') {
+    await broadcastState()
+    setStatus(currentTurn === myColor ? 'ตาของคุณ!' : `รอ ${oppName}...`, currentTurn === myColor ? 'badge-playing' : 'badge-waiting')
+  } else {
+    if (currentTurn !== myColor) setTimeout(doAITurn, 700)
+  }
+}
+
+function checkWinner() {
+  const redCount = board.flat().filter(p => p?.color === 'red').length
+  const blkCount = board.flat().filter(p => p?.color === 'blk').length
+  if (redCount === 0) return 'blk'
+  if (blkCount === 0) return 'red'
+  // Check if current player has no moves
+  const { moves } = getMoves(board, currentTurn)
+  if (moves.length === 0) return currentTurn === 'red' ? 'blk' : 'red'
+  return null
+}
+
+// ─── AI Turn (Minimax depth=3) ────────────────────────────────
+async function doAITurn() {
+  if (gameOver || currentTurn === myColor) return
+  document.getElementById('aiThinking').classList.add('show')
+
+  let bestMove = null
+  try {
+    const { data, error } = await db.functions.invoke('ai-move-checkers', {
+      body: { board, turn: currentTurn }
+    })
+    if (!error && data?.move) bestMove = data.move
+  } catch (_) {}
+
+  if (!bestMove) bestMove = minimaxBestMove(board, currentTurn, 3)
+
+  document.getElementById('aiThinking').classList.remove('show')
+  if (!bestMove) {
+    await endGame(false)
+    return
+  }
+  await executeAIMove(bestMove)
+}
+
+async function executeAIMove(move) {
+  applyMove(board, move)
+
+  // Chain jump
+  if (move.captured) {
+    const chains = getChainJumps(board, move.to.r, move.to.c)
+    if (chains.length > 0) {
+      const next = chains[Math.floor(Math.random() * chains.length)]
+      renderAll()
+      setTimeout(() => executeAIMove(next), 600)
+      return
+    }
+  }
+
+  currentTurn = currentTurn === 'red' ? 'blk' : 'red'
+  const winner = checkWinner()
+  if (winner) { await endGame(winner === myColor); renderAll(); return }
+  renderAll()
+  setStatus('ตาของคุณ!', 'badge-playing')
+}
+
+function minimaxBestMove(b, color, depth) {
+  const { moves } = getMoves(b, color)
+  if (!moves.length) return null
+  let best = null, bestScore = -Infinity
+  for (const move of moves) {
+    const nb = copyBoard(b)
+    applyMove(nb, move)
+    const score = minimax(nb, color === 'red' ? 'blk' : 'red', depth - 1, -Infinity, Infinity, false, color)
+    if (score > bestScore) { bestScore = score; best = move }
+  }
+  return best
+}
+
+function minimax(b, turn, depth, alpha, beta, maximizing, aiColor) {
+  const winner = checkWinnerBoard(b, turn)
+  if (winner) return winner === aiColor ? 1000 : -1000
+  if (depth === 0) return evalBoard(b, aiColor)
+  const { moves } = getMoves(b, turn)
+  if (!moves.length) return -500
+  if (maximizing) {
+    let val = -Infinity
+    for (const m of moves) {
+      const nb = copyBoard(b); applyMove(nb, m)
+      val = Math.max(val, minimax(nb, turn === 'red' ? 'blk' : 'red', depth-1, alpha, beta, false, aiColor))
+      alpha = Math.max(alpha, val)
+      if (beta <= alpha) break
+    }
+    return val
+  } else {
+    let val = Infinity
+    for (const m of moves) {
+      const nb = copyBoard(b); applyMove(nb, m)
+      val = Math.min(val, minimax(nb, turn === 'red' ? 'blk' : 'red', depth-1, alpha, beta, true, aiColor))
+      beta = Math.min(beta, val)
+      if (beta <= alpha) break
+    }
+    return val
+  }
+}
+
+function evalBoard(b, color) {
+  let score = 0
+  const opp = color === 'red' ? 'blk' : 'red'
+  b.flat().forEach(p => {
+    if (!p) return
+    const v = p.king ? 3 : 1
+    if (p.color === color) score += v
+    else score -= v
+  })
+  return score
+}
+
+function checkWinnerBoard(b, turn) {
+  const r = b.flat().filter(p => p?.color === 'red').length
+  const bk = b.flat().filter(p => p?.color === 'blk').length
+  if (r === 0) return 'blk'
+  if (bk === 0) return 'red'
+  const { moves } = getMoves(b, turn)
+  if (moves.length === 0) return turn === 'red' ? 'blk' : 'red'
+  return null
+}
+
+function copyBoard(b) {
+  return b.map(row => row.map(p => p ? { ...p } : null))
+}
+
+// ─── Render ───────────────────────────────────────────────────
+function renderAll() {
+  renderBoard()
+  updatePlayerCounts()
+  if (!gameOver) {
+    const isMyT = currentTurn === myColor
+    setStatus(isMyT ? 'ตาของคุณ! เลือกหมาก' : `รอ ${gameMode === 'ai' ? 'AI' : oppName}...`, isMyT ? 'badge-playing' : 'badge-waiting')
+    document.getElementById('p1Card').classList.toggle('active', currentTurn === 'red')
+    document.getElementById('p2Card').classList.toggle('active', currentTurn === 'blk')
+  }
+}
+
+function renderBoard() {
+  const el = document.getElementById('board')
+  el.innerHTML = ''
+  const validTargets = new Set(validMoves.map(m => `${m.to.r},${m.to.c}`))
+  const selKey = selectedCell ? `${selectedCell.r},${selectedCell.c}` : null
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const sq = document.createElement('div')
+      const isDark = (r + c) % 2 === 1
+      sq.className = `sq ${isDark ? 'dark' : 'light'}`
+      const key = `${r},${c}`
+      if (key === selKey) sq.classList.add('selected')
+      if (validTargets.has(key)) sq.classList.add('valid-target')
+      if (isDark) sq.onclick = () => clickSquare(r, c)
+
+      const piece = board[r]?.[c]
+      if (piece) {
+        const pd = document.createElement('div')
+        pd.className = `piece ${piece.color}${piece.king ? ' king' : ''}${key === selKey ? ' selected-piece' : ''}`
+        pd.textContent = piece.king ? '♔' : ''
+        pd.onclick = (e) => { e.stopPropagation(); clickSquare(r, c) }
+        sq.appendChild(pd)
+        if (isDark && currentTurn === myColor && piece.color === myColor && !gameOver) {
+          sq.classList.add('can-move')
+        }
+      }
+      el.appendChild(sq)
+    }
+  }
+}
+
+function updatePlayerCounts() {
+  const red = board.flat().filter(p => p?.color === 'red').length
+  const blk = board.flat().filter(p => p?.color === 'blk').length
+  document.getElementById('p1Count').textContent = red
+  document.getElementById('p2Count').textContent = blk
+}
+
+// ─── End Game ─────────────────────────────────────────────────
+async function endGame(iWon) {
+  gameOver = true
+  const winner = iWon ? myName : (gameMode === 'ai' ? 'AI' : oppName)
+  setStatus(iWon ? `🎉 ${myName} ชนะ!` : `😔 ${iWon === false ? (gameMode==='ai'?'AI':oppName) : '?'} ชนะ!`, 'badge-win')
+  showToast(iWon ? '🏆 ชนะแล้ว!' : '😢 แพ้แล้ว ลองใหม่!')
+  if (gameMode !== 'ai') gameChat?.gameEvent('win', { winner })
+  document.getElementById('p1Card').classList.remove('active')
+  document.getElementById('p2Card').classList.remove('active')
+  await saveResult(iWon ? 'win' : 'loss', gameMode === 'ai' ? 'AI 🤖' : oppName)
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession()
+    if (!data.session) return
+    await db.from('game_results').insert({
+      player_name: myName, game: 'checkers', result, opponent,
+      user_id: data.session.user.id
+    })
+  } catch (_) {}
+}
+
+// ─── Reset ────────────────────────────────────────────────────
+function resetGame() {
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  document.getElementById('chatContainer').style.display = 'none'
+  realtimeChannel?.unsubscribe()
+  realtimeChannel = null
+  gameOver = false
+  selectedCell = null
+  validMoves = []
+  chainJump = null
+  showScreen('setupScreen')
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+function setStatus(text, badgeClass) {
+  document.getElementById('statusText').textContent = text
+  const badge = document.getElementById('statusBadge')
+  badge.className = `status-badge ${badgeClass}`
+  const labels = { 'badge-waiting': 'รอ', 'badge-playing': 'กำลังเล่น', 'badge-win': 'จบเกม' }
+  badge.textContent = labels[badgeClass] || 'รอ'
+}
+
+function copyRoomCode() {
+  navigator.clipboard?.writeText(roomId || '').then(() => showToast('คัดลอก Room Code แล้ว!'))
+}
+
+let toastTimer
+function showToast(msg) {
+  clearTimeout(toastTimer)
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600)
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const mode = new URLSearchParams(location.search).get('mode')
+  if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
+})
+</script>
+</body>
+</html>
