@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -120,6 +121,8 @@
   .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 9px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none; background: transparent; border: none; cursor: pointer; width: 100%; transition: background 0.15s; text-align: left; }
   .dropdown-item:hover { background: var(--surface2); }
   .dropdown-item-danger { color: var(--accent3); }
+  .live-count { font-family: var(--font-ui); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(79,207,142,0.12); color: var(--green); border: 1px solid rgba(79,207,142,0.2); display: none; }
+  .live-count.active { display: inline-block; }
   @media (max-width: 640px) { .game-card.featured { grid-column: span 1; } .hero-title { letter-spacing: -1px; } .user-name { display: none; } }
 </style>
 </head>
@@ -130,7 +133,7 @@
   <header>
     <div class="logo"><span class="logo-dot"></span>Board On Dis</div>
     <div class="header-right">
-      <div class="online-badge"><span class="online-dot"></span>247 ออนไลน์</div>
+      <div class="online-badge"><span class="online-dot"></span><span id="onlineCount">—</span> ออนไลน์</div>
       <a href="leaderboard.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 18px;border-radius:999px;font-family:var(--font-ui);font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s;">🏆 Leaderboard</a>
       <div class="user-widget" id="userWidget">
         <button class="user-btn" onclick="window.location.href='login.html'">เข้าสู่ระบบ</button>
@@ -162,62 +165,86 @@
         </div>
       </div>
     </div>
-    <div class="game-card" data-tags="multi classic" onclick="openGame('tictactoe')">
+    <div class="game-card" data-tags="multi classic" data-game="tictactoe" onclick="openGame('tictactoe')">
       <div class="card-visual card-bg-2"><span class="card-emoji">⭕</span></div>
       <div class="card-body">
         <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">✦ เริ่มต้น</span></div>
         <div class="card-name">โอ-ซี</div>
         <div class="card-desc">Tic-Tac-Toe ง่าย เร็ว สนุก เล่นกับเพื่อนหรือ AI</div>
         <div class="card-footer">
-          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-tictactoe"></span></div>
           <button class="play-btn">เล่นเลย →</button>
         </div>
       </div>
     </div>
-    <div class="game-card" data-tags="multi" onclick="openGame('uno')">
+    <div class="game-card" data-tags="multi" data-game="uno" onclick="openGame('uno')">
       <div class="card-visual card-bg-3"><span class="card-emoji">🃏</span></div>
       <div class="card-body">
         <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-hot">🔥 สนุก</span></div>
         <div class="card-name">UNO</div>
         <div class="card-desc">เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!</div>
         <div class="card-footer">
-          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div><div class="avatar">👤</div></div>2-6 คน</div>
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div><div class="avatar">👤</div></div>2-6 คน <span class="live-count" id="count-uno"></span></div>
           <button class="play-btn">เล่นเลย →</button>
         </div>
       </div>
     </div>
-    <div class="game-card" data-tags="multi strategy" onclick="openGame('battleship')">
+    <div class="game-card" data-tags="multi strategy" data-game="battleship" onclick="openGame('battleship')">
       <div class="card-visual card-bg-4"><span class="card-emoji">🚢</span></div>
       <div class="card-body">
         <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">กลยุทธ์</span></div>
         <div class="card-name">Battle Ship</div>
         <div class="card-desc">วางเรือ เดาตำแหน่ง จมเรือศัตรูให้หมดก่อน</div>
         <div class="card-footer">
-          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-battleship"></span></div>
           <button class="play-btn">เล่นเลย →</button>
         </div>
       </div>
     </div>
-    <div class="game-card" data-tags="solo strategy" onclick="openGame('2048')">
+    <div class="game-card" data-tags="solo multi strategy" data-game="2048" onclick="openGame('2048')">
       <div class="card-visual card-bg-5"><span class="card-emoji">🔢</span></div>
       <div class="card-body">
-        <div class="card-tags"><span class="tag tag-solo">Solo</span></div>
+        <div class="card-tags"><span class="tag tag-solo">Solo</span><span class="tag tag-multi">VS Mode</span></div>
         <div class="card-name">2048</div>
-        <div class="card-desc">รวมตัวเลขให้ถึง 2048 เกมกลยุทธ์ที่ง่ายแต่เลิกไม่ได้</div>
+        <div class="card-desc">รวมตัวเลขให้ถึง 2048 — เล่นคนเดียวหรือแข่ง VS ใน 3 นาที</div>
         <div class="card-footer">
-          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div></div>1 คน</div>
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>1-2 คน <span class="live-count" id="count-2048"></span></div>
           <button class="play-btn">เล่นเลย →</button>
         </div>
       </div>
     </div>
-    <div class="game-card" data-tags="multi strategy classic" onclick="openGame('gomoku')">
+    <div class="game-card" data-tags="multi strategy classic" data-game="gomoku" onclick="openGame('gomoku')">
       <div class="card-visual card-bg-6"><span class="card-emoji">⚫</span></div>
       <div class="card-body">
         <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">คลาสสิก</span></div>
         <div class="card-name">โกะ / Gomoku</div>
         <div class="card-desc">วางหมากให้ได้ 5 ตัวในแนวเดียวกัน เกมกลยุทธ์ที่ลึกกว่าที่คิด</div>
         <div class="card-footer">
-          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน</div>
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-gomoku"></span></div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi strategy classic" data-game="checkers" onclick="openGame('checkers')">
+      <div class="card-visual" style="background:linear-gradient(135deg,#1a0d0d 0%,#3d1a00 100%);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;"><span class="card-emoji" style="font-size:64px;position:relative;z-index:1">🔴</span><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--surface) 100%)"></div></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-new">คลาสสิก</span></div>
+        <div class="card-name">หมากฮอส</div>
+        <div class="card-desc">Checkers คลาสสิก กินหมากต่อเนื่อง ปั้นขุนให้ได้ก่อน</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-checkers"></span></div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
+    <div class="game-card" data-tags="multi strategy" data-game="connect-four" onclick="openGame('connect-four')">
+      <div class="card-visual" style="background:linear-gradient(135deg,#0a1a3d 0%,#1a3a8a 100%);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;"><span class="card-emoji" style="font-size:64px;position:relative;z-index:1">🔵</span><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--surface) 100%)"></div></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-hot">🔥 สนุก</span></div>
+        <div class="card-name">Connect Four</div>
+        <div class="card-desc">วางหมาก 4 ตัวในแนวเดียวกันก่อนฝ่ายตรงข้าม</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-connect-four"></span></div>
           <button class="play-btn">เล่นเลย →</button>
         </div>
       </div>
@@ -301,12 +328,14 @@
 
 <script>
 const games = {
-  chess:      { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI หลายระดับ' },
-  tictactoe:  { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI' },
-  uno:        { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!' },
-  battleship: { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน' },
-  '2048':     { emoji:'🔢', name:'2048',           desc:'รวมตัวเลขให้ถึง 2048' },
-  gomoku:     { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน' },
+  chess:         { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI หลายระดับ' },
+  tictactoe:     { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI' },
+  uno:           { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!' },
+  battleship:    { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน' },
+  '2048':        { emoji:'🔢', name:'2048',           desc:'รวมตัวเลขให้ถึง 2048 — Solo หรือ VS 3 นาที' },
+  gomoku:        { emoji:'⚫', name:'โกะ / Gomoku',  desc:'วางหมากให้ได้ 5 ตัวในแนวเดียวกัน' },
+  checkers:      { emoji:'🔴', name:'หมากฮอส',       desc:'Checkers คลาสสิก — กินหมาก, ต่อเนื่อง, ปั้นขุน' },
+  'connect-four':{ emoji:'🔵', name:'Connect Four',  desc:'วางหมาก 4 ตัวในแนวเดียวกันก่อนฝ่ายตรงข้าม' },
 };
 let currentGame = null;
 function openGame(id) {
@@ -320,12 +349,14 @@ function openGame(id) {
 function startGame(mode) {
   closeModal('gameModal')
   const routes = {
-    chess:      '../games/chess.html',
-    tictactoe:  'games/tictactoe.html',
-    uno:        'games/uno.html',
-    battleship: 'games/battleship.html',
-    '2048':     'games/2048.html',
-    gomoku:     'games/gomoku.html',
+    chess:         '../games/chess.html',
+    tictactoe:     'games/tictactoe.html',
+    uno:           'games/uno.html',
+    battleship:    'games/battleship.html',
+    '2048':        'games/2048.html',
+    gomoku:        'games/gomoku.html',
+    checkers:      'games/checkers.html',
+    'connect-four':'games/connect-four.html',
   }
   const url = routes[currentGame]
   if (!url) { showToast('เกมนี้ยังไม่พร้อม เร็วๆ นี้!'); return; }
@@ -371,11 +402,36 @@ document.querySelectorAll('.game-card').forEach((card, i) => {
   }));
 });
 
-// Auth + Header
-const SUPABASE_URL = 'https://dqypnvrrmethwlzjebmg.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxeXBudnJybWV0aHdsemplYm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTU5MTgsImV4cCI6MjA5MDQzMTkxOH0.jNHr3eDA6bCxSUJh6oG3rcnAoJVWGQNJiQhAzKtESIE'
-const { createClient } = supabase
-const db = createClient(SUPABASE_URL, SUPABASE_KEY)
+// Auth + Header (db is provided by js/supabase.js)
+
+// ── Realtime player counts ─────────────────────────────────────
+async function loadPlayerCounts() {
+  try {
+    const { data } = await db.from('rooms').select('game').eq('status', 'playing')
+    if (!data) return
+    const counts = {}
+    for (const row of data) {
+      counts[row.game] = (counts[row.game] || 0) + 2 // each room = 2 players
+    }
+    let total = 0
+    // Reset all first
+    document.querySelectorAll('.live-count').forEach(el => { el.textContent = ''; el.classList.remove('active') })
+    for (const [game, n] of Object.entries(counts)) {
+      const el = document.getElementById('count-' + game)
+      if (el) { el.textContent = `${n} กำลังเล่น`; el.classList.add('active') }
+      total += n
+    }
+    const onlineEl = document.getElementById('onlineCount')
+    if (onlineEl) onlineEl.textContent = total || '—'
+  } catch (_) {}
+}
+loadPlayerCounts()
+// Refresh counts every 30s
+setInterval(loadPlayerCounts, 30000)
+// Subscribe to rooms changes
+try {
+  db.channel('rooms-counts').on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, loadPlayerCounts).subscribe()
+} catch (_) {}
 
 function buildAvatarHtml(avatarUrl, name) {
   if (avatarUrl) {

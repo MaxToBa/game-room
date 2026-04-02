@@ -143,6 +143,10 @@
       <button class="filter-btn" onclick="filterGame('tictactoe', this)">⭕ โอ-ซี</button>
       <button class="filter-btn" onclick="filterGame('gomoku', this)">⚫ Gomoku</button>
       <button class="filter-btn" onclick="filterGame('battleship', this)">⚓ Battleship</button>
+      <button class="filter-btn" onclick="filterGame('uno', this)">🃏 UNO</button>
+      <button class="filter-btn" onclick="filterGame('checkers', this)">🔴 หมากฮอส</button>
+      <button class="filter-btn" onclick="filterGame('connect-four', this)">🔵 Connect 4</button>
+      <button class="filter-btn" onclick="filterGame('2048', this)">🔢 2048</button>
     </div>
     <div class="top3" id="top3"></div>
     <div class="table-wrap">
@@ -176,6 +180,10 @@
         <button class="filter-btn" onclick="filterHistory('tictactoe', this)">⭕ โอ-ซี</button>
         <button class="filter-btn" onclick="filterHistory('gomoku', this)">⚫ Gomoku</button>
         <button class="filter-btn" onclick="filterHistory('battleship', this)">⚓ Battleship</button>
+        <button class="filter-btn" onclick="filterHistory('uno', this)">🃏 UNO</button>
+        <button class="filter-btn" onclick="filterHistory('checkers', this)">🔴 หมากฮอส</button>
+        <button class="filter-btn" onclick="filterHistory('connect-four', this)">🔵 Connect 4</button>
+        <button class="filter-btn" onclick="filterHistory('2048', this)">🔢 2048</button>
       </div>
       <div class="table-wrap">
         <div class="table-header hist-grid">
@@ -197,6 +205,10 @@ const GAME_NAMES = {
   tictactoe: '⭕ โอ-ซี',
   gomoku: '⚫ Gomoku',
   battleship: '⚓ Battleship',
+  uno: '🃏 UNO',
+  checkers: '🔴 หมากฮอส',
+  'connect-four': '🔵 Connect 4',
+  '2048': '🔢 2048',
 }
 
 let allResults = []         // public leaderboard data
