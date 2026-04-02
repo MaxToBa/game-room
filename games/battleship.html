@@ -168,7 +168,7 @@
   <div id="nameScreen" style="display:none" class="name-screen fade-in">
     <div class="setup-title" style="margin-bottom:8px;text-align:center">ใส่ชื่อของคุณ</div>
     <div class="setup-sub" style="text-align:center">ชื่อนี้จะแสดงให้เพื่อนเห็น</div>
-    <div class="form-group">
+    <div class="form-group" id="nameFormGroup">
       <label class="form-label">ชื่อผู้เล่น</label>
       <input class="form-input" id="nameInput" placeholder="เช่น MaxToBa" maxlength="16">
     </div>
@@ -359,32 +359,28 @@ function showScreen(id) {
   document.getElementById(id).style.display = 'block'
 }
 
-function showNameScreen(mode) {
+async function showNameScreen(mode) {
   pendingMode = mode
-  document.getElementById('joinCodeGroup').style.display = mode === 'join' ? 'block' : 'none'
-  document.getElementById('nameInput').value = ''
-  document.getElementById('joinInput').value = ''
-  showScreen('nameScreen')
-  loadMyProfile()
+  await loadMyProfile()
+  const name = document.getElementById('nameInput').value.trim() || localStorage.getItem('playerName') || 'ผู้เล่น'
+  myName = name
+  gameMode = mode
+  if (mode === 'join') {
+    document.getElementById('nameFormGroup').style.display = 'none'
+    document.getElementById('joinCodeGroup').style.display = 'block'
+    document.getElementById('joinInput').value = ''
+    showScreen('nameScreen')
+    return
+  }
+  if (mode === 'create') { roomId = Math.random().toString(36).substring(2,8).toUpperCase(); isHost = true }
+  else { isHost = true } // ai
+  showPlacementScreen()
 }
 
 function handleNameNext() {
-  const name = document.getElementById('nameInput').value.trim()
-  if (!name) { showToast('กรุณาใส่ชื่อก่อนนะครับ'); return }
-  myName = name
-  gameMode = pendingMode
-  if (pendingMode === 'join') {
-    const code = document.getElementById('joinInput').value.trim().toUpperCase()
-    if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return }
-    roomId = code
-    isHost = false
-  } else if (pendingMode === 'create') {
-    roomId = Math.random().toString(36).substring(2, 8).toUpperCase()
-    isHost = true
-  } else {
-    isHost = true
-  }
-  showPlacementScreen()
+  const code = document.getElementById('joinInput').value.trim().toUpperCase()
+  if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return }
+  roomId = code; isHost = false; showPlacementScreen()
 }
 
 // ---- Ship Placement ----

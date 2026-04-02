@@ -458,7 +458,7 @@ function renderBoard(boardEl, grid) {
 
 // ─── Solo Game ────────────────────────────────────────────────────────────────
 function startSolo() {
-  const name = document.getElementById('soloNameInput').value.trim() || 'ผู้เล่น';
+  const name = document.getElementById('soloNameInput').value.trim() || localStorage.getItem('playerName') || 'ผู้เล่น';
   myName = name;
   gameMode = 'solo';
   myScore = 0;
@@ -518,7 +518,7 @@ async function endSolo(result) {
 
 // ─── VS Mode ──────────────────────────────────────────────────────────────────
 async function createRoom() {
-  const name = document.getElementById('createNameInput').value.trim() || 'ผู้เล่น';
+  const name = document.getElementById('createNameInput').value.trim() || localStorage.getItem('playerName') || 'ผู้เล่น';
   myName = name;
   gameMode = 'create';
   isHost = true;
@@ -733,9 +733,52 @@ function show(id) {
 }
 
 function showSetup() { show('setupScreen'); }
-function showSoloSetup() { show('soloNameScreen'); }
-function showCreateRoom() { show('createRoomScreen'); }
+function showSoloSetup() { autoStartMode('solo'); }
+function showCreateRoom() { autoStartMode('create'); }
 function showJoinRoom() { show('joinRoomScreen'); }
+
+async function autoStartMode(mode) {
+  // Auto-fetch name and proceed without showing name screen
+  await loadMyProfile2048();
+  if (mode === 'solo') startSolo();
+  else if (mode === 'create') createRoom();
+}
+
+async function loadMyProfile2048() {
+  try {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      const user = data.session.user;
+      const meta = user.user_metadata || {};
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0];
+      const { data: profile } = await db.from('profiles').select('username').eq('id', user.id).maybeSingle();
+      const name = profile?.username || defaultName;
+      ['soloNameInput','createNameInput','joinNameInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = name;
+      });
+      return;
+    }
+  } catch (_) {}
+  const saved = localStorage.getItem('playerName');
+  if (saved) ['soloNameInput','createNameInput','joinNameInput'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = saved;
+  });
+}
+
+// Auto-start from URL param
+;(async function() {
+  const mode = new URLSearchParams(location.search).get('mode');
+  if (mode === 'solo' || mode === 'create') {
+    await autoStartMode(mode);
+  } else if (mode === 'join') {
+    await loadMyProfile2048();
+    showJoinRoom();
+  } else {
+    loadMyProfile2048(); // pre-fill in background
+  }
+})();
 
 function copyCode() {
   navigator.clipboard.writeText(roomId || '').then(() => {
