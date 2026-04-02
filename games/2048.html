@@ -70,7 +70,7 @@
 
   /* Score area */
   .score-area { display: grid; gap: 12px; margin-bottom: 20px; }
-  .score-area.solo { grid-template-columns: 1fr 1fr; }
+  .score-area.solo { grid-template-columns: 1fr 1fr 1fr; }
   .score-area.vs { grid-template-columns: 1fr auto 1fr; }
   .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; text-align: center; transition: all 0.3s; }
   .score-card.active { border-color: var(--accent); box-shadow: 0 0 20px rgba(232,197,71,0.15); }
@@ -89,6 +89,8 @@
   .timer-progress { height: 4px; background: var(--surface2); border-radius: 2px; flex: 2; overflow: hidden; }
   .timer-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear, background 1s; }
   .timer-fill.urgent { background: var(--red); }
+  .solo-timer { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .solo-timer-text { font-family: var(--font-display); font-size: 20px; color: var(--muted); }
 
   /* Game board */
   .game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -252,6 +254,15 @@
         <div class="score-label">สถิติสูงสุด</div>
         <div class="score-value" id="soloBest">0</div>
       </div>
+      <div class="score-card">
+        <div class="score-label">ไทล์สูงสุด</div>
+        <div class="score-value" id="soloBestTile">2</div>
+      </div>
+    </div>
+
+    <div class="solo-timer" id="soloTimerBar">
+      <span class="timer-icon">⏱</span>
+      <span class="solo-timer-text" id="soloTimerText">0:00</span>
     </div>
 
     <div class="game-area">
@@ -342,7 +353,10 @@ let myBoard = null;    // 4×4 array
 let theirBoardData = null;
 let gameActive = false;
 let timerInterval = null;
-let timerSeconds = 180; // 3 minutes
+let timerSeconds = 180; // 3 minutes for VS
+let soloTimerInterval = null;
+let soloElapsed = 0;   // seconds elapsed in solo mode
+let soloBestTile = 2;
 let channel = null;
 let gameChat = null;
 let touchStartX = 0;
@@ -462,6 +476,8 @@ function startSolo() {
   myName = name;
   gameMode = 'solo';
   myScore = 0;
+  soloBestTile = 2;
+  soloElapsed = 0;
   myBoard = newGrid();
   addRandom(myBoard);
   addRandom(myBoard);
@@ -471,11 +487,35 @@ function startSolo() {
   updateSoloBest();
   renderBoard(document.getElementById('soloBoard'), myBoard);
   updateSoloScore(0);
+  document.getElementById('soloBestTile').textContent = '2';
+  startSoloTimer();
+}
+
+function startSoloTimer() {
+  clearInterval(soloTimerInterval);
+  updateSoloTimerDisplay();
+  soloTimerInterval = setInterval(() => {
+    soloElapsed++;
+    updateSoloTimerDisplay();
+  }, 1000);
+}
+
+function updateSoloTimerDisplay() {
+  const m = Math.floor(soloElapsed / 60);
+  const s = soloElapsed % 60;
+  document.getElementById('soloTimerText').textContent = `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function updateSoloScore(pts) {
   myScore += pts;
   document.getElementById('soloScore').textContent = myScore;
+  // Update best tile
+  const maxTile = Math.max(...myBoard.flat());
+  if (maxTile > soloBestTile) {
+    soloBestTile = maxTile;
+    document.getElementById('soloBestTile').textContent = soloBestTile;
+  }
+  // Update local best score
   const best = parseInt(localStorage.getItem('2048_best') || '0');
   if (myScore > best) {
     localStorage.setItem('2048_best', myScore);
@@ -483,7 +523,26 @@ function updateSoloScore(pts) {
   }
 }
 
-function updateSoloBest() {
+async function updateSoloBest() {
+  // Try Supabase first
+  try {
+    const { data: sess } = await db.auth.getSession();
+    if (sess.session) {
+      const { data } = await db.from('game_results')
+        .select('score')
+        .eq('user_id', sess.session.user.id)
+        .eq('game', '2048')
+        .order('score', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.score) {
+        document.getElementById('soloBest').textContent = data.score;
+        if (data.score > parseInt(localStorage.getItem('2048_best') || '0'))
+          localStorage.setItem('2048_best', data.score);
+        return;
+      }
+    }
+  } catch (_) {}
   document.getElementById('soloBest').textContent = localStorage.getItem('2048_best') || 0;
 }
 
@@ -507,13 +566,17 @@ function soloMove(dir) {
 
 async function endSolo(result) {
   gameActive = false;
+  clearInterval(soloTimerInterval);
   const isWin = result === 'win';
   if (isWin) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose') }
+  const m = Math.floor(soloElapsed / 60), s = soloElapsed % 60;
+  const timeStr = `${m}:${s.toString().padStart(2, '0')}`;
   document.getElementById('gameOverEmoji').textContent = isWin ? '🎉' : '😔';
   document.getElementById('gameOverTitle').textContent = isWin ? 'คุณได้ 2048!' : 'เกมจบแล้ว';
-  document.getElementById('gameOverScore').innerHTML = `คะแนน: <strong>${myScore}</strong>`;
+  document.getElementById('gameOverScore').innerHTML =
+    `คะแนน: <strong>${myScore}</strong> · ไทล์: <strong>${soloBestTile}</strong> · เวลา: ${timeStr}`;
   document.getElementById('gameOverOverlay').style.display = 'flex';
-  await saveResult(result === 'win' ? 'win' : 'lose', 'AI');
+  await saveResult(isWin ? 'win' : 'lose', 'AI');
 }
 
 // ─── VS Mode ──────────────────────────────────────────────────────────────────
@@ -805,6 +868,7 @@ function goHome() {
 function resetGame() {
   gameActive = false;
   clearInterval(timerInterval);
+  clearInterval(soloTimerInterval);
   if (channel) { channel.unsubscribe(); channel = null; }
   if (gameChat) { gameChat.destroy?.(); gameChat = null; }
   document.getElementById('gameOverOverlay').style.display = 'none';
@@ -815,13 +879,17 @@ async function saveResult(result, opponent) {
   try {
     const { data } = await db.auth.getSession();
     if (!data.session) return;
-    await db.from('game_results').insert({
+    const row = {
       player_name: myName,
       game: '2048',
       result,
       opponent,
-      user_id: data.session.user.id
-    });
+      user_id: data.session.user.id,
+      score: myScore,
+      best_tile: soloBestTile,
+      time_played: gameMode === 'solo' ? soloElapsed : (180 - timerSeconds)
+    };
+    await db.from('game_results').insert(row);
   } catch (_) {}
 }
 GameSound.addMuteButton()
