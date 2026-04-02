@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:game-room-weld.vercel.app)",
+      "Bash(node -e ':*)",
+      "Bash(ls *.html)",
+      "Bash(ls games/*.html)"
+    ]
+  }
+}
