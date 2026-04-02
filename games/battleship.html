@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -904,10 +906,12 @@ function applyMyBoardResult(idx, result, sunkId) {
     enemyHits++
     enemyBoard[idx] = result === 'sunk' ? 'sunk' : 'hit'
     const sunkDef = result === 'sunk' ? SHIP_DEFS.find(d => d.id === sunkId) : null
+    GameSound.play(result === 'sunk' ? 'sunk' : 'hit')
     showToast(result === 'sunk' ? '💥 จมแล้ว!' : '🎯 โดน!')
     if (result === 'sunk' && sunkDef) gameChat?.gameEvent('sunk', { player: myName, ship: sunkDef.name })
     else if (result === 'hit') gameChat?.gameEvent('hit', { player: myName })
   } else {
+    GameSound.play('miss')
     enemyBoard[idx] = 'miss'
     showToast('💨 พลาด')
     gameChat?.gameEvent('miss', { player: myName })
@@ -995,6 +999,7 @@ async function endGame(won) {
   gameOver = true
   enableEnemyGrid(false)
   document.getElementById('aiThinking').classList.remove('show')
+  if (won) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose'); GameEffects.shake(document.querySelector('.grid-wrapper')) }
   const badge = won ? 'badge-win' : 'badge-lose'
   setStatus(won ? `🎉 ${myName} ชนะ!` : `💀 ${enemyName} ชนะ!`, badge)
   showToast(won ? '🏆 ชนะแล้ว!' : '😢 แพ้แล้ว...')
@@ -1092,6 +1097,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const mode = params.get('mode')
   if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
 })
+GameSound.addMuteButton()
 </script>
 </body>
 </html>

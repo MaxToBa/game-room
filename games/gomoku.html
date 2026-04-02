@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -587,6 +589,7 @@ async function makeMove(idx) {
 
 function applyMove(idx, symbol) {
   board[idx] = symbol
+  GameSound.play('move')
   updateBoard()
   currentTurn = symbol === 'B' ? 'W' : 'B'
   setActiveCard()
@@ -614,11 +617,13 @@ async function endGame(winSymbol) {
   if (winSymbol) {
     const iWon = winSymbol === mySymbol
     const opponentName = gameMode === 'ai' ? 'Claude AI' : 'เพื่อน'
+    if (iWon) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose'); GameEffects.shake(document.querySelector('.board')) }
     updateStatus(iWon ? `🎉 ${myName} ชนะ!` : '😔 คุณแพ้!', 'win')
     showToast(iWon ? `ยอดเยี่ยม ${myName}! ชนะแล้ว 🎉` : (gameMode==='ai' ? 'AI ชนะครั้งนี้ ลองใหม่!' : 'เสียใจด้วย ลองใหม่!'))
     if (gameMode === 'online') gameChat?.gameEvent('win', { winner: iWon ? myName : opponentName })
     await saveResult(iWon ? 'win' : 'loss', opponentName)
   } else {
+    GameSound.play('draw')
     updateStatus('🤝 เสมอกัน!', 'draw')
     showToast('เสมอกัน! สู้อีกรอบ!')
     if (gameMode === 'online') gameChat?.gameEvent('draw', {})
@@ -677,6 +682,7 @@ function showToast(msg) {
 // Auto-detect mode from URL param
 const urlMode = new URLSearchParams(location.search).get('mode')
 if (urlMode) showNameScreen(urlMode)
+GameSound.addMuteButton()
 </script>
 </body>
 </html>

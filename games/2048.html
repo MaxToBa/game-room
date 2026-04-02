@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -489,6 +491,8 @@ function soloMove(dir) {
   const { grid, score, moved } = moveGrid(myBoard, dir);
   if (!moved) return;
   myBoard = grid;
+  if (score > 0) GameSound.play('merge');
+  else GameSound.play('move');
   updateSoloScore(score);
   addRandom(myBoard);
   renderBoard(document.getElementById('soloBoard'), myBoard);
@@ -503,6 +507,7 @@ function soloMove(dir) {
 async function endSolo(result) {
   gameActive = false;
   const isWin = result === 'win';
+  if (isWin) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose') }
   document.getElementById('gameOverEmoji').textContent = isWin ? '🎉' : '😔';
   document.getElementById('gameOverTitle').textContent = isWin ? 'คุณได้ 2048!' : 'เกมจบแล้ว';
   document.getElementById('gameOverScore').innerHTML = `คะแนน: <strong>${myScore}</strong>`;
@@ -637,6 +642,8 @@ function vsMove(dir) {
   const { grid, score, moved } = moveGrid(myBoard, dir);
   if (!moved) return;
   myBoard = grid;
+  if (score > 0) GameSound.play('merge');
+  else GameSound.play('move');
   myScore += score;
   addRandom(myBoard);
   renderBoard(document.getElementById('myBoard'), myBoard);
@@ -671,6 +678,9 @@ async function endVS(isTimeUp) {
   gameChat?.gameEvent(result === 'win' ? 'win' : result === 'lose' ? 'lose' : 'draw');
   await saveResult(result, theirName);
 
+  if (iWin) { GameSound.play('win'); GameEffects.confetti() }
+  else if (isDraw) GameSound.play('draw')
+  else { GameSound.play('lose') }
   document.getElementById('gameOverEmoji').textContent = iWin ? '🏆' : (isDraw ? '🤝' : '😔');
   document.getElementById('gameOverTitle').textContent =
     iWin ? 'คุณชนะ!' : isDraw ? 'เสมอกัน!' : 'คุณแพ้!';
@@ -770,6 +780,7 @@ async function saveResult(result, opponent) {
     });
   } catch (_) {}
 }
+GameSound.addMuteButton()
 </script>
 </body>
 </html>

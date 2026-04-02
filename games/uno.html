@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -602,7 +604,14 @@ async function selectCard(idx) {
 
   let chosenColor = null
   if (card.type === 'wild' || card.type === 'wild4') {
+    GameSound.play('wild')
     chosenColor = await pickColor()
+  } else if (card.type === 'draw2') {
+    GameSound.play('draw2')
+  } else if (card.type === 'skip' || card.type === 'reverse') {
+    GameSound.play('skip')
+  } else {
+    GameSound.play('cardPlay')
   }
 
   // Remove from hand
@@ -817,6 +826,7 @@ function chooseColor(color) {
 // ─── End Game ─────────────────────────────────────────────────
 async function endGame(iWon) {
   gameOver = true
+  if (iWon) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose') }
   if (gameChat) gameChat.gameEvent('win', { winner: iWon ? myName : oppName })
   setStatus(iWon ? `🎉 ${myName} ชนะ! ไพ่หมดแล้ว!` : `😔 ${oppName} ชนะ!`, 'badge-win')
   showToast(iWon ? '🏆 ชนะแล้ว! ยอดเยี่ยม!' : '😢 แพ้แล้ว ลองใหม่!')
@@ -938,6 +948,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const mode = new URLSearchParams(location.search).get('mode')
   if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
 })
+GameSound.addMuteButton()
 </script>
 </body>
 </html>

@@ -8,6 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -539,6 +541,7 @@ function clickSquare(r, c) {
 
 async function executeMove(move) {
   applyMove(board, move)
+  GameSound.play(move.captured ? 'capture' : 'move')
   selectedCell = null
 
   // Chain jump?
@@ -750,6 +753,7 @@ function updatePlayerCounts() {
 // ─── End Game ─────────────────────────────────────────────────
 async function endGame(iWon) {
   gameOver = true
+  if (iWon) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose'); GameEffects.shake(document.querySelector('.board-grid')) }
   const winner = iWon ? myName : (gameMode === 'ai' ? 'AI' : oppName)
   setStatus(iWon ? `🎉 ${myName} ชนะ!` : `😔 ${iWon === false ? (gameMode==='ai'?'AI':oppName) : '?'} ชนะ!`, 'badge-win')
   showToast(iWon ? '🏆 ชนะแล้ว!' : '😢 แพ้แล้ว ลองใหม่!')
@@ -809,6 +813,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const mode = new URLSearchParams(location.search).get('mode')
   if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
 })
+GameSound.addMuteButton()
 </script>
 </body>
 </html>
