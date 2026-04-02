@@ -148,6 +148,7 @@
       <button class="filter-btn" onclick="filterGame('checkers', this)">🔴 หมากฮอส</button>
       <button class="filter-btn" onclick="filterGame('connect-four', this)">🔵 Connect 4</button>
       <button class="filter-btn" onclick="filterGame('2048', this)">🔢 2048</button>
+      <button class="filter-btn" onclick="filterGame('chess', this)">♟️ Chess</button>
     </div>
     <div class="top3" id="top3"></div>
     <div class="table-wrap">
@@ -185,6 +186,7 @@
         <button class="filter-btn" onclick="filterHistory('checkers', this)">🔴 หมากฮอส</button>
         <button class="filter-btn" onclick="filterHistory('connect-four', this)">🔵 Connect 4</button>
         <button class="filter-btn" onclick="filterHistory('2048', this)">🔢 2048</button>
+        <button class="filter-btn" onclick="filterHistory('chess', this)">♟️ Chess</button>
       </div>
       <div class="table-wrap">
         <div class="table-header hist-grid">
@@ -210,6 +212,7 @@ const GAME_NAMES = {
   checkers: '🔴 หมากฮอส',
   'connect-four': '🔵 Connect 4',
   '2048': '🔢 2048',
+  chess: '♟️ Chess',
 }
 
 let allResults = []         // public leaderboard data

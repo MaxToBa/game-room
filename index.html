@@ -250,6 +250,18 @@
         </div>
       </div>
     </div>
+    <div class="game-card" data-tags="multi strategy classic" data-game="chess" onclick="openGame('chess')">
+      <div class="card-visual" style="background:linear-gradient(135deg,#1a1000 0%,#3d2e00 100%);height:180px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;"><span class="card-emoji" style="font-size:64px;position:relative;z-index:1">♟️</span><div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--surface) 100%)"></div></div>
+      <div class="card-body">
+        <div class="card-tags"><span class="tag tag-multi">Multiplayer</span><span class="tag tag-ai">🤖 VS AI</span></div>
+        <div class="card-name">หมากรุกสากล</div>
+        <div class="card-desc">Chess คลาสสิก เล่นกับ AI หรือแข่งกับเพื่อนออนไลน์</div>
+        <div class="card-footer">
+          <div class="players-info"><div class="player-avatars"><div class="avatar">👤</div><div class="avatar">👤</div></div>2 คน <span class="live-count" id="count-chess"></span></div>
+          <button class="play-btn">เล่นเลย →</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -330,7 +342,7 @@
 <script>
 // type: 'coming-soon' | 'vs-ai' (AI+create+join) | 'multi' (create+join) | 'solo-vs' (solo+vs)
 const games = {
-  chess:         { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI', type:'coming-soon' },
+  chess:         { emoji:'♟️', name:'หมากรุกสากล',  desc:'Chess คลาสสิก เล่นกับเพื่อนหรือ AI', url:'games/chess.html', type:'vs-ai' },
   tictactoe:     { emoji:'⭕', name:'โอ-ซี',         desc:'Tic-Tac-Toe ง่าย เร็ว เล่นกับเพื่อนหรือ AI', type:'vs-ai' },
   uno:           { emoji:'🃏', name:'UNO',            desc:'เกมไพ่สุดฮิต เล่นได้ 2-6 คน ระวัง +4!', type:'multi' },
   battleship:    { emoji:'🚢', name:'Battle Ship',    desc:'วางเรือ จมเรือศัตรูให้หมดก่อน', type:'vs-ai' },
@@ -398,7 +410,7 @@ function openGame(id) {
 function startGame(mode) {
   closeModal('gameModal')
   const routes = {
-    chess:         '../games/chess.html',
+    chess:         'games/chess.html',
     tictactoe:     'games/tictactoe.html',
     uno:           'games/uno.html',
     battleship:    'games/battleship.html',
