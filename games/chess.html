@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>หมากรุกสากล — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/chat.js"></script>
+<script src="../js/sound.js"></script>
+<script src="../js/effects.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e; --red: #f05a5a;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 400px; height: 400px; background: rgba(124,106,245,0.08); top: -100px; right: -100px; }
+  .blob-2 { width: 300px; height: 300px; background: rgba(232,197,71,0.06); bottom: 0; left: -80px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 540px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .game-title { font-family: var(--font-display); font-size: 24px; }
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 20px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .status-text { font-size: 14px; font-weight: 600; }
+  .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .badge-waiting { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-check { background: rgba(240,90,90,0.2); color: var(--red); }
+  .badge-end { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .players-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; text-align: center; transition: all 0.3s; }
+  .player-card.active { border-color: var(--accent2); box-shadow: 0 0 20px rgba(124,106,245,0.2); }
+  .player-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 12px; font-weight: 700; color: #fff; margin: 0 auto 4px; overflow: hidden; }
+  .player-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .player-name { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .player-color-dot { font-size: 18px; margin-bottom: 3px; }
+  .vs-text { font-family: var(--font-display); font-size: 18px; color: var(--muted); text-align: center; }
+  .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 13px; border-radius: 14px; font-family: var(--font-ui); font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+  .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); }
+  .action-btn.danger { background: rgba(240,90,90,0.15); color: var(--red); border: 1px solid rgba(240,90,90,0.3); }
+  .action-btn.danger:hover { background: rgba(240,90,90,0.25); }
+  .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 20px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .room-code-label { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 3px; }
+  .room-code-text { font-family: var(--font-display); font-size: 22px; letter-spacing: 4px; color: var(--accent); }
+  .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
+  .copy-code-btn:hover { border-color: var(--border-hover); }
+  .setup-screen { text-align: center; padding: 20px 0; }
+  .setup-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 8px; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-options { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .mode-card-sub { font-size: 13px; color: var(--muted); }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
+  .coin-flip { text-align: center; padding: 32px 0; }
+  .coin { font-size: 64px; display: block; margin-bottom: 16px; animation: spin 0.6s ease-in-out; }
+  .coin-text { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .coin-sub { color: var(--muted); font-size: 14px; }
+  .waiting-screen { text-align: center; padding: 32px 0; }
+  .waiting-icon { font-size: 56px; margin-bottom: 16px; animation: pulse 2s ease-in-out infinite; }
+  .waiting-text { font-family: var(--font-display); font-size: 22px; margin-bottom: 8px; }
+  .waiting-sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .waiting-code-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 24px; }
+  .waiting-code-label { font-size: 12px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 8px; }
+  .waiting-code { font-family: var(--font-display); font-size: 36px; letter-spacing: 8px; color: var(--accent); }
+  .ai-thinking { display: none; align-items: center; gap: 10px; justify-content: center; padding: 10px; color: var(--muted); font-size: 13px; font-family: var(--font-ui); }
+  .ai-thinking.show { display: flex; }
+  .dot-pulse { display: flex; gap: 4px; }
+  .dot-pulse span { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 9999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+  @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(720deg); } }
+  @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+  /* ─── Chess Board ─── */
+  .board-area { margin-bottom: 16px; }
+  .captured-row { display: flex; align-items: center; gap: 4px; padding: 6px 12px; min-height: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .captured-row .cap-label { font-size: 10px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-right: 4px; }
+  .captured-piece { font-size: 16px; line-height: 1; }
+  .board-with-labels { display: inline-flex; gap: 0; }
+  .rank-labels { display: flex; flex-direction: column; justify-content: space-around; width: 18px; align-items: center; }
+  .rank-label { font-size: 10px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; line-height: 1; }
+  .board-col { display: flex; flex-direction: column; }
+  .file-labels { display: flex; justify-content: space-around; padding-left: 18px; }
+  .file-label { font-size: 10px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; text-align: center; }
+  .chess-board { display: grid; grid-template-columns: repeat(8, 1fr); border: 3px solid rgba(255,255,255,0.12); border-radius: 8px; overflow: hidden; width: 100%; max-width: 480px; }
+  .chess-sq { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: background 0.1s; user-select: none; }
+  .chess-sq.light { background: #f0d9b5; }
+  .chess-sq.dark { background: #b58863; }
+  .chess-sq.selected { background: rgba(255, 215, 0, 0.7) !important; }
+  .chess-sq.legal-move::after { content: ''; position: absolute; width: 32%; height: 32%; border-radius: 50%; background: rgba(0,0,0,0.25); pointer-events: none; }
+  .chess-sq.legal-capture { box-shadow: inset 0 0 0 4px rgba(200, 0, 0, 0.55); }
+  .chess-sq.last-from { background: rgba(255, 215, 0, 0.35) !important; }
+  .chess-sq.last-to { background: rgba(255, 215, 0, 0.55) !important; }
+  .chess-sq.in-check { background: rgba(240, 90, 90, 0.65) !important; }
+  .chess-piece { font-size: clamp(18px, 4vw, 30px); line-height: 1; cursor: pointer; text-shadow: 0 1px 3px rgba(0,0,0,0.4); transition: transform 0.1s; pointer-events: none; }
+  .chess-sq:hover .chess-piece { transform: scale(1.1); }
+  .board-wrap { overflow-x: auto; }
+  .board-outer { display: flex; flex-direction: column; align-items: center; }
+
+  /* Promotion overlay */
+  .promo-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 500; }
+  .promo-box { background: var(--surface); border: 1px solid var(--border-hover); border-radius: 20px; padding: 28px; text-align: center; }
+  .promo-title { font-family: var(--font-display); font-size: 22px; margin-bottom: 18px; }
+  .promo-pieces { display: flex; gap: 12px; justify-content: center; }
+  .promo-piece-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; width: 64px; height: 64px; font-size: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .promo-piece-btn:hover { border-color: var(--accent2); transform: scale(1.1); }
+
+  /* Game over overlay */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 400; }
+  .overlay-box { background: var(--surface); border: 1px solid var(--border-hover); border-radius: 24px; padding: 36px 28px; text-align: center; max-width: 320px; width: 90%; }
+  .overlay-emoji { font-size: 64px; margin-bottom: 12px; display: block; }
+  .overlay-title { font-family: var(--font-display); font-size: 28px; margin-bottom: 6px; }
+  .overlay-sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+  .overlay-btns { display: flex; flex-direction: column; gap: 8px; }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="container">
+  <div class="top-bar">
+    <a href="../index.html" class="back-btn">← กลับ</a>
+    <div class="game-title">♟ หมากรุกสากล</div>
+    <div style="width:80px;text-align:right" id="muteArea"></div>
+  </div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen fade-in">
+    <div class="setup-title">เลือกโหมด</div>
+    <div class="setup-sub">หมากรุกสากลแบบเต็มรูปแบบ<br>เล่นกับ AI หรือเพื่อนออนไลน์</div>
+    <div class="setup-options">
+      <div class="mode-card" onclick="showVsAI()">
+        <div class="mode-card-title">🤖 VS AI</div>
+        <div class="mode-card-sub">สู้กับ AI วิเคราะห์ท่าอัตโนมัติ</div>
+      </div>
+      <div class="mode-card" onclick="showCreateRoom()">
+        <div class="mode-card-title">👥 สร้างห้อง (Online)</div>
+        <div class="mode-card-sub">สร้าง room code แล้วส่งให้เพื่อน</div>
+      </div>
+      <div class="mode-card" onclick="showJoinRoom()">
+        <div class="mode-card-title">🔑 เข้าร่วมห้อง</div>
+        <div class="mode-card-sub">มี room code จากเพื่อนแล้ว กรอกเพื่อเข้าเลย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Name Screen (join only) -->
+  <div id="nameScreen" style="display:none" class="name-screen fade-in">
+    <div class="setup-title" style="text-align:center;margin-bottom:8px">เข้าร่วมห้อง</div>
+    <div class="setup-sub" style="text-align:center">กรอก Room Code จากเพื่อน</div>
+    <div class="form-group">
+      <label class="form-label">Room Code</label>
+      <input class="form-input code-input" id="joinInput" placeholder="AB3X9K" maxlength="6">
+    </div>
+    <button class="action-btn" onclick="handleJoinNext()">เข้าร่วม →</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Waiting Screen -->
+  <div id="waitingScreen" style="display:none" class="waiting-screen fade-in">
+    <div class="waiting-icon">♟</div>
+    <div class="waiting-text">รอผู้เล่นคนที่สอง</div>
+    <div class="waiting-sub">ส่ง Room Code ให้เพื่อนเพื่อเริ่มเกม</div>
+    <div class="waiting-code-box">
+      <div class="waiting-code-label">ROOM CODE</div>
+      <div class="waiting-code" id="waitingCode">——</div>
+    </div>
+    <button class="copy-code-btn" style="margin:0 auto;display:block" onclick="copyRoomCode()">📋 คัดลอก Room Code</button>
+    <button class="action-btn secondary" style="margin-top:20px" onclick="cancelWaiting()">← ยกเลิก</button>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" style="display:none" class="fade-in">
+    <div class="room-info" id="roomInfo" style="display:none">
+      <div>
+        <div class="room-code-label">Room Code</div>
+        <div class="room-code-text" id="roomCodeDisplay">—</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-text" id="statusText">กำลังโหลด...</div>
+      <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
+    </div>
+
+    <div class="players-bar">
+      <div class="player-card" id="p1Card">
+        <div class="player-avatar" id="p1Avatar"><span>?</span></div>
+        <div class="player-color-dot">♔</div>
+        <div class="player-name" id="p1Name">ขาว</div>
+      </div>
+      <div class="vs-text">vs</div>
+      <div class="player-card" id="p2Card">
+        <div class="player-avatar" id="p2Avatar"><span>?</span></div>
+        <div class="player-color-dot" style="color:#ccc">♚</div>
+        <div class="player-name" id="p2Name">ดำ</div>
+      </div>
+    </div>
+
+    <div class="board-area">
+      <!-- Opponent's captured pieces (pieces opp captured from me) -->
+      <div class="captured-row" id="capturedTop">
+        <span class="cap-label">จับได้:</span>
+      </div>
+      <div class="board-wrap">
+        <div class="board-outer">
+          <div style="display:flex">
+            <div class="rank-labels" id="rankLabels"></div>
+            <div>
+              <div class="chess-board" id="chessBoard"></div>
+              <div class="file-labels" id="fileLabels"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- My captured pieces -->
+      <div class="captured-row" id="capturedBottom" style="margin-top:8px">
+        <span class="cap-label">จับได้:</span>
+      </div>
+    </div>
+
+    <div class="ai-thinking" id="aiThinking">
+      <span>AI กำลังคิด...</span>
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+    </div>
+
+    <div id="chatContainer" style="display:none;margin-bottom:8px"></div>
+
+    <button class="action-btn secondary" onclick="resignOrNewGame()">🏳 ยอมแพ้</button>
+    <button class="action-btn secondary" onclick="goHome()">← กลับหน้าหลัก</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Promotion overlay -->
+<div class="promo-overlay" id="promoOverlay" style="display:none">
+  <div class="promo-box">
+    <div class="promo-title">เลือกเบี้ยที่ต้องการ</div>
+    <div class="promo-pieces" id="promoPieces"></div>
+  </div>
+</div>
+
+<!-- Game over overlay -->
+<div class="overlay" id="gameOverOverlay" style="display:none">
+  <div class="overlay-box">
+    <span class="overlay-emoji" id="overlayEmoji">🏆</span>
+    <div class="overlay-title" id="overlayTitle">จบเกม</div>
+    <div class="overlay-sub" id="overlaySub"></div>
+    <div class="overlay-btns">
+      <button class="action-btn" onclick="restartGame()">🔄 เล่นอีกครั้ง</button>
+      <button class="action-btn secondary" onclick="goHome()">← กลับหน้าหลัก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────
+let board = null;
+let currentTurn = 'w';
+let myColor = null;
+let enPassant = null;
+let castleRights = { wK: true, wQ: true, bK: true, bQ: true };
+let selectedSq = null;
+let legalMoves = [];
+let gameOver = false;
+let gameMode = null;
+let myName = 'ผู้เล่น';
+let myAvatarUrl = null;
+let oppName = 'คู่ต่อสู้';
+let oppAvatarUrl = null;
+let roomId = null;
+let isHost = false;
+let channel = null;
+let gameChat = null;
+let moveHistory = [];
+let capturedByMe = [];
+let capturedByOpp = [];
+let lastMove = null;
+let pendingPromo = null;
+let fullMoveNumber = 1;
+
+// ─── Piece definitions ────────────────────────────────────────
+const GLYPHS = {
+  w: { K:'♔', Q:'♕', R:'♖', B:'♗', N:'♘', P:'♙' },
+  b: { K:'♚', Q:'♛', R:'♜', B:'♝', N:'♞', P:'♟' }
+};
+
+// ─── Initial Board ────────────────────────────────────────────
+function initBoard() {
+  const b = Array.from({length:8}, () => Array(8).fill(null));
+  const order = ['R','N','B','Q','K','B','N','R'];
+  for (let c = 0; c < 8; c++) {
+    b[0][c] = {type: order[c], color: 'b'};
+    b[1][c] = {type: 'P', color: 'b'};
+    b[6][c] = {type: 'P', color: 'w'};
+    b[7][c] = {type: order[c], color: 'w'};
+  }
+  return b;
+}
+
+// ─── Deep clone board ─────────────────────────────────────────
+function cloneBoard(b) {
+  return b.map(row => row.map(cell => cell ? {...cell} : null));
+}
+
+// ─── Find king ────────────────────────────────────────────────
+function findKing(b, color) {
+  for (let r = 0; r < 8; r++)
+    for (let c = 0; c < 8; c++)
+      if (b[r][c]?.type === 'K' && b[r][c]?.color === color)
+        return {r, c};
+  return null;
+}
+
+// ─── Is square attacked by opponent ──────────────────────────
+function isAttacked(b, r, c, byColor) {
+  // Pawns
+  const pDir = byColor === 'w' ? 1 : -1;
+  for (const dc of [-1, 1]) {
+    const pr = r + pDir, pc = c + dc;
+    if (pr >= 0 && pr < 8 && pc >= 0 && pc < 8) {
+      const p = b[pr][pc];
+      if (p && p.color === byColor && p.type === 'P') return true;
+    }
+  }
+  // Knights
+  for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+    const nr = r+dr, nc = c+dc;
+    if (nr>=0&&nr<8&&nc>=0&&nc<8) {
+      const p = b[nr][nc];
+      if (p && p.color === byColor && p.type === 'N') return true;
+    }
+  }
+  // Sliding: R/Q (rook dirs)
+  for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+    let nr=r+dr, nc=c+dc;
+    while (nr>=0&&nr<8&&nc>=0&&nc<8) {
+      const p = b[nr][nc];
+      if (p) {
+        if (p.color === byColor && (p.type==='R'||p.type==='Q')) return true;
+        break;
+      }
+      nr+=dr; nc+=dc;
+    }
+  }
+  // Sliding: B/Q (bishop dirs)
+  for (const [dr, dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
+    let nr=r+dr, nc=c+dc;
+    while (nr>=0&&nr<8&&nc>=0&&nc<8) {
+      const p = b[nr][nc];
+      if (p) {
+        if (p.color === byColor && (p.type==='B'||p.type==='Q')) return true;
+        break;
+      }
+      nr+=dr; nc+=dc;
+    }
+  }
+  // King
+  for (const [dr, dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+    const nr=r+dr, nc=c+dc;
+    if (nr>=0&&nr<8&&nc>=0&&nc<8) {
+      const p = b[nr][nc];
+      if (p && p.color === byColor && p.type === 'K') return true;
+    }
+  }
+  return false;
+}
+
+// ─── Is in check ─────────────────────────────────────────────
+function isInCheck(b, color) {
+  const king = findKing(b, color);
+  if (!king) return false;
+  const opp = color === 'w' ? 'b' : 'w';
+  return isAttacked(b, king.r, king.c, opp);
+}
+
+// ─── Raw moves (no check filtering) ──────────────────────────
+function getRawMoves(b, r, c, ep, cr) {
+  const piece = b[r][c];
+  if (!piece) return [];
+  const {type, color} = piece;
+  const opp = color === 'w' ? 'b' : 'w';
+  const moves = [];
+
+  const add = (tr, tc, special) => {
+    if (tr>=0&&tr<8&&tc>=0&&tc<8) moves.push({r:tr,c:tc,special:special||null});
+  };
+
+  if (type === 'P') {
+    const dir = color === 'w' ? -1 : 1;
+    const startRow = color === 'w' ? 6 : 1;
+    const promoRow = color === 'w' ? 0 : 7;
+    // Forward
+    if (!b[r+dir]?.[c]) {
+      const special = (r+dir === promoRow) ? 'promo' : null;
+      add(r+dir, c, special);
+      // Double push
+      if (r === startRow && !b[r+2*dir]?.[c]) add(r+2*dir, c, null);
+    }
+    // Captures
+    for (const dc of [-1,1]) {
+      const tr=r+dir, tc=c+dc;
+      if (tr>=0&&tr<8&&tc>=0&&tc<8) {
+        if (b[tr][tc]?.color === opp) {
+          add(tr, tc, (tr===promoRow) ? 'promo' : null);
+        }
+        // En passant
+        if (ep && ep.r===tr && ep.c===tc) add(tr, tc, 'ep');
+      }
+    }
+  }
+  else if (type === 'N') {
+    for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+      const tr=r+dr, tc=c+dc;
+      if (tr>=0&&tr<8&&tc>=0&&tc<8&&b[tr][tc]?.color!==color) add(tr,tc);
+    }
+  }
+  else if (type === 'B') {
+    for (const [dr,dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
+      let tr=r+dr, tc=c+dc;
+      while (tr>=0&&tr<8&&tc>=0&&tc<8) {
+        if (b[tr][tc]) { if (b[tr][tc].color!==color) add(tr,tc); break; }
+        add(tr,tc); tr+=dr; tc+=dc;
+      }
+    }
+  }
+  else if (type === 'R') {
+    for (const [dr,dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      let tr=r+dr, tc=c+dc;
+      while (tr>=0&&tr<8&&tc>=0&&tc<8) {
+        if (b[tr][tc]) { if (b[tr][tc].color!==color) add(tr,tc); break; }
+        add(tr,tc); tr+=dr; tc+=dc;
+      }
+    }
+  }
+  else if (type === 'Q') {
+    for (const [dr,dc] of [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+      let tr=r+dr, tc=c+dc;
+      while (tr>=0&&tr<8&&tc>=0&&tc<8) {
+        if (b[tr][tc]) { if (b[tr][tc].color!==color) add(tr,tc); break; }
+        add(tr,tc); tr+=dr; tc+=dc;
+      }
+    }
+  }
+  else if (type === 'K') {
+    for (const [dr,dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]) {
+      const tr=r+dr, tc=c+dc;
+      if (tr>=0&&tr<8&&tc>=0&&tc<8&&b[tr][tc]?.color!==color) add(tr,tc);
+    }
+    // Castling
+    if (color === 'w' && r===7 && c===4) {
+      if (cr.wK && !b[7][5] && !b[7][6] && b[7][7]?.type==='R' && b[7][7]?.color==='w') {
+        if (!isAttacked(b,7,4,opp) && !isAttacked(b,7,5,opp) && !isAttacked(b,7,6,opp))
+          add(7,6,'castle-k');
+      }
+      if (cr.wQ && !b[7][3] && !b[7][2] && !b[7][1] && b[7][0]?.type==='R' && b[7][0]?.color==='w') {
+        if (!isAttacked(b,7,4,opp) && !isAttacked(b,7,3,opp) && !isAttacked(b,7,2,opp))
+          add(7,2,'castle-q');
+      }
+    }
+    if (color === 'b' && r===0 && c===4) {
+      if (cr.bK && !b[0][5] && !b[0][6] && b[0][7]?.type==='R' && b[0][7]?.color==='b') {
+        if (!isAttacked(b,0,4,opp) && !isAttacked(b,0,5,opp) && !isAttacked(b,0,6,opp))
+          add(0,6,'castle-k');
+      }
+      if (cr.bQ && !b[0][3] && !b[0][2] && !b[0][1] && b[0][0]?.type==='R' && b[0][0]?.color==='b') {
+        if (!isAttacked(b,0,4,opp) && !isAttacked(b,0,3,opp) && !isAttacked(b,0,2,opp))
+          add(0,2,'castle-q');
+      }
+    }
+  }
+  return moves;
+}
+
+// ─── Apply move to board (immutable) ─────────────────────────
+function applyMove(b, fromR, fromC, toR, toC, special, promoPiece) {
+  const nb = cloneBoard(b);
+  const piece = nb[fromR][fromC];
+  nb[toR][toC] = piece;
+  nb[fromR][fromC] = null;
+  if (special === 'ep') {
+    const capturedPawnRow = piece.color === 'w' ? toR+1 : toR-1;
+    nb[capturedPawnRow][toC] = null;
+  }
+  if (special === 'castle-k') {
+    if (piece.color === 'w') { nb[7][5] = nb[7][7]; nb[7][7] = null; }
+    else { nb[0][5] = nb[0][7]; nb[0][7] = null; }
+  }
+  if (special === 'castle-q') {
+    if (piece.color === 'w') { nb[7][3] = nb[7][0]; nb[7][0] = null; }
+    else { nb[0][3] = nb[0][0]; nb[0][0] = null; }
+  }
+  if (special === 'promo') {
+    nb[toR][toC] = {type: promoPiece || 'Q', color: piece.color};
+  }
+  return nb;
+}
+
+// ─── Legal moves (filter out self-check) ─────────────────────
+function getLegalMoves(b, r, c, ep, cr) {
+  const piece = b[r][c];
+  if (!piece) return [];
+  const raw = getRawMoves(b, r, c, ep, cr);
+  return raw.filter(mv => {
+    const nb = applyMove(b, r, c, mv.r, mv.c, mv.special, 'Q');
+    return !isInCheck(nb, piece.color);
+  });
+}
+
+// ─── All legal moves for a color ─────────────────────────────
+function getAllLegalMoves(b, color, ep, cr) {
+  const all = [];
+  for (let r=0;r<8;r++)
+    for (let c=0;c<8;c++)
+      if (b[r][c]?.color===color)
+        for (const mv of getLegalMoves(b,r,c,ep,cr))
+          all.push({fromR:r,fromC:c,...mv});
+  return all;
+}
+
+function isCheckmate(b, color, ep, cr) {
+  return isInCheck(b, color) && getAllLegalMoves(b, color, ep, cr).length === 0;
+}
+function isStalemate(b, color, ep, cr) {
+  return !isInCheck(b, color) && getAllLegalMoves(b, color, ep, cr).length === 0;
+}
+
+// ─── FEN generation ───────────────────────────────────────────
+function boardToFEN(b, turn, cr, ep, history) {
+  let fen = '';
+  for (let r=0;r<8;r++) {
+    let empty=0;
+    for (let c=0;c<8;c++) {
+      const p = b[r][c];
+      if (!p) { empty++; }
+      else {
+        if (empty) { fen+=empty; empty=0; }
+        const ch = p.type;
+        fen += p.color==='w' ? ch : ch.toLowerCase();
+      }
+    }
+    if (empty) fen+=empty;
+    if (r<7) fen+='/';
+  }
+  const castleStr = (cr.wK?'K':'')+(cr.wQ?'Q':'')+(cr.bK?'k':'')+(cr.bQ?'q':'') || '-';
+  let epStr = '-';
+  if (ep) {
+    const file = String.fromCharCode(97+ep.c);
+    const rank = 8-ep.r;
+    epStr = file+rank;
+  }
+  const half = 0;
+  const full = Math.ceil((history.length+1)/2);
+  return `${fen} ${turn} ${castleStr} ${epStr} ${half} ${full}`;
+}
+
+// ─── Profile ─────────────────────────────────────────────────
+async function loadMyProfile() {
+  try {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      const user = data.session.user;
+      const meta = user.user_metadata || {};
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0];
+      myAvatarUrl = meta.avatar_url || null;
+      const { data: profile } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle();
+      myName = profile?.username || defaultName || 'ผู้เล่น';
+      if (profile?.avatar_url) myAvatarUrl = profile.avatar_url;
+      return;
+    }
+  } catch(_) {}
+  myName = localStorage.getItem('playerName') || 'ผู้เล่น';
+}
+
+function setAvatar(elId, url, name) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const initial = (name || '?')[0].toUpperCase();
+  el.innerHTML = url
+    ? `<img src="${url}" alt="${initial}" onerror="this.parentElement.innerHTML='<span>${initial}</span>'">`
+    : `<span>${initial}</span>`;
+}
+
+// ─── Toast ────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── Screens ─────────────────────────────────────────────────
+function showScreen(id) {
+  ['setupScreen','nameScreen','waitingScreen','gameScreen'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById(id).style.display = 'block';
+}
+
+// ─── Mode entry ───────────────────────────────────────────────
+async function showVsAI() {
+  await autoStart('ai');
+}
+async function showCreateRoom() {
+  await autoStart('create');
+}
+function showJoinRoom() {
+  document.getElementById('joinInput').value = '';
+  showScreen('nameScreen');
+}
+
+async function autoStart(mode) {
+  gameMode = mode;
+  await loadMyProfile();
+  if (mode === 'ai') {
+    myColor = 'w';
+    oppName = 'AI';
+    startGame();
+  } else if (mode === 'create') {
+    roomId = Math.random().toString(36).substring(2,8).toUpperCase();
+    isHost = true;
+    myColor = 'w';
+    document.getElementById('waitingCode').textContent = roomId;
+    showScreen('waitingScreen');
+    setupOnlineChannel();
+  }
+}
+
+function handleJoinNext() {
+  const code = document.getElementById('joinInput').value.trim().toUpperCase();
+  if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return; }
+  roomId = code;
+  isHost = false;
+  myColor = 'b';
+  gameMode = 'join';
+  setupOnlineChannel();
+}
+
+function cancelWaiting() {
+  if (channel) { db.removeChannel(channel); channel = null; }
+  showScreen('setupScreen');
+}
+
+function copyRoomCode() {
+  navigator.clipboard?.writeText(roomId).then(() => showToast('คัดลอก Room Code แล้ว!'));
+}
+
+// ─── Online channel ───────────────────────────────────────────
+function setupOnlineChannel() {
+  if (channel) db.removeChannel(channel);
+  channel = db.channel('chess:' + roomId);
+
+  channel.on('broadcast', {event:'join'}, ({payload}) => {
+    if (!isHost) return;
+    oppName = payload.name || 'ผู้เล่น';
+    oppAvatarUrl = payload.avatarUrl || null;
+    // Send start
+    channel.send({type:'broadcast', event:'start', payload:{
+      hostName: myName,
+      hostAvatarUrl: myAvatarUrl,
+      guestColor: 'b'
+    }});
+    startGame();
+  });
+
+  channel.on('broadcast', {event:'start'}, ({payload}) => {
+    if (isHost) return;
+    oppName = payload.hostName || 'คู่ต่อสู้';
+    oppAvatarUrl = payload.hostAvatarUrl || null;
+    myColor = 'b';
+    startGame();
+  });
+
+  channel.on('broadcast', {event:'move'}, ({payload}) => {
+    if (gameOver) return;
+    const {from, to, special, promo} = payload;
+    applyMoveAndUpdate(from.r, from.c, to.r, to.c, special, promo, false);
+  });
+
+  channel.on('broadcast', {event:'resign'}, ({payload}) => {
+    const who = payload.color === myColor ? 'คุณ' : oppName;
+    endGame(payload.color === myColor ? 'loss' : 'win', `${who} ยอมแพ้`);
+  });
+
+  channel.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      if (!isHost) {
+        // Guest sends join
+        await loadMyProfile();
+        channel.send({type:'broadcast', event:'join', payload:{
+          name: myName,
+          avatarUrl: myAvatarUrl
+        }});
+        showToast('เชื่อมต่อแล้ว รอ host...');
+        showScreen('gameScreen');
+        renderEmptyBoard();
+        updateStatusBar('รอ host...', 'badge-waiting');
+      }
+    }
+  });
+}
+
+// ─── Start game ───────────────────────────────────────────────
+function startGame() {
+  board = initBoard();
+  currentTurn = 'w';
+  enPassant = null;
+  castleRights = { wK:true, wQ:true, bK:true, bQ:true };
+  selectedSq = null;
+  legalMoves = [];
+  gameOver = false;
+  moveHistory = [];
+  capturedByMe = [];
+  capturedByOpp = [];
+  lastMove = null;
+  pendingPromo = null;
+  fullMoveNumber = 1;
+
+  document.getElementById('gameOverOverlay').style.display = 'none';
+  document.getElementById('promoOverlay').style.display = 'none';
+
+  showScreen('gameScreen');
+
+  // Room info
+  if (gameMode !== 'ai') {
+    document.getElementById('roomInfo').style.display = 'flex';
+    document.getElementById('roomCodeDisplay').textContent = roomId;
+  } else {
+    document.getElementById('roomInfo').style.display = 'none';
+  }
+
+  // Chat (online)
+  if (gameMode !== 'ai') {
+    const chatEl = document.getElementById('chatContainer');
+    chatEl.style.display = 'block';
+    if (typeof GameChat !== 'undefined') {
+      gameChat = new GameChat(chatEl, roomId, myName);
+    }
+  }
+
+  updatePlayers();
+  renderBoard();
+  updateStatusBar();
+
+  if (gameMode === 'ai' && currentTurn !== myColor) {
+    setTimeout(requestAIMove, 600);
+  }
+}
+
+function renderEmptyBoard() {
+  const boardEl = document.getElementById('chessBoard');
+  boardEl.innerHTML = '';
+  for (let i=0;i<64;i++) {
+    const sq = document.createElement('div');
+    sq.className = 'chess-sq ' + (((Math.floor(i/8)+i%8)%2===0)?'light':'dark');
+    boardEl.appendChild(sq);
+  }
+}
+
+// ─── Players bar ─────────────────────────────────────────────
+function updatePlayers() {
+  const whiteName = myColor === 'w' ? myName : oppName;
+  const blackName = myColor === 'b' ? myName : oppName;
+  const whiteAvatar = myColor === 'w' ? myAvatarUrl : oppAvatarUrl;
+  const blackAvatar = myColor === 'b' ? myAvatarUrl : oppAvatarUrl;
+
+  document.getElementById('p1Name').textContent = whiteName;
+  document.getElementById('p2Name').textContent = blackName;
+  setAvatar('p1Avatar', whiteAvatar, whiteName);
+  setAvatar('p2Avatar', blackAvatar, blackName);
+
+  document.getElementById('p1Card').classList.toggle('active', currentTurn==='w');
+  document.getElementById('p2Card').classList.toggle('active', currentTurn==='b');
+}
+
+// ─── Status bar ───────────────────────────────────────────────
+function updateStatusBar(override, badgeClass) {
+  const statusText = document.getElementById('statusText');
+  const statusBadge = document.getElementById('statusBadge');
+  if (override) {
+    statusText.textContent = override;
+    statusBadge.className = 'status-badge ' + (badgeClass || 'badge-waiting');
+    return;
+  }
+  if (gameOver) return;
+  const inCheck = isInCheck(board, currentTurn);
+  if (inCheck) {
+    statusText.textContent = currentTurn === 'w' ? 'กษัตริย์ขาวถูกรุก!' : 'กษัตริย์ดำถูกรุก!';
+    statusBadge.className = 'status-badge badge-check';
+    statusBadge.textContent = '⚠️';
+    return;
+  }
+  statusText.textContent = currentTurn === 'w' ? 'ตาขาว' : 'ตาดำ';
+  statusBadge.className = 'status-badge badge-playing';
+  statusBadge.textContent = '▶';
+}
+
+// ─── Board rendering ─────────────────────────────────────────
+function renderBoard() {
+  const boardEl = document.getElementById('chessBoard');
+  boardEl.innerHTML = '';
+  const shouldFlip = myColor === 'b';
+
+  // Labels
+  const rankLabels = document.getElementById('rankLabels');
+  const fileLabels = document.getElementById('fileLabels');
+  rankLabels.innerHTML = '';
+  fileLabels.innerHTML = '';
+  const ranks = shouldFlip ? ['1','2','3','4','5','6','7','8'] : ['8','7','6','5','4','3','2','1'];
+  const files = shouldFlip ? ['h','g','f','e','d','c','b','a'] : ['a','b','c','d','e','f','g','h'];
+  ranks.forEach(r => {
+    const lbl = document.createElement('div');
+    lbl.className = 'rank-label';
+    lbl.style.height = '12.5%';
+    lbl.textContent = r;
+    rankLabels.appendChild(lbl);
+  });
+  files.forEach(f => {
+    const lbl = document.createElement('div');
+    lbl.className = 'file-label';
+    lbl.style.flex = '1';
+    lbl.textContent = f;
+    fileLabels.appendChild(lbl);
+  });
+
+  for (let dr=0;dr<8;dr++) {
+    for (let dc=0;dc<8;dc++) {
+      const r = shouldFlip ? 7-dr : dr;
+      const c = shouldFlip ? 7-dc : dc;
+      const sq = document.createElement('div');
+      const isLight = (r+c)%2 === 0;
+      sq.className = 'chess-sq ' + (isLight ? 'light' : 'dark');
+      sq.dataset.r = r;
+      sq.dataset.c = c;
+
+      // Highlight classes
+      if (selectedSq && selectedSq.r===r && selectedSq.c===c) sq.classList.add('selected');
+      if (lastMove) {
+        if (lastMove.fromR===r && lastMove.fromC===c) sq.classList.add('last-from');
+        if (lastMove.toR===r && lastMove.toC===c) sq.classList.add('last-to');
+      }
+      // Legal move highlights
+      const lm = legalMoves.find(m => m.r===r && m.c===c);
+      if (lm) {
+        if (board[r][c] || lm.special==='ep') sq.classList.add('legal-capture');
+        else sq.classList.add('legal-move');
+      }
+      // Check king highlight
+      if (isInCheck(board, 'w') && board[r][c]?.type==='K' && board[r][c]?.color==='w') sq.classList.add('in-check');
+      if (isInCheck(board, 'b') && board[r][c]?.type==='K' && board[r][c]?.color==='b') sq.classList.add('in-check');
+
+      // Piece
+      const piece = board[r][c];
+      if (piece) {
+        const span = document.createElement('span');
+        span.className = 'chess-piece';
+        span.style.color = piece.color === 'w' ? '#fff' : '#111';
+        if (piece.color === 'w') span.style.textShadow = '0 1px 3px rgba(0,0,0,0.6), 0 0 1px #000';
+        span.textContent = GLYPHS[piece.color][piece.type];
+        sq.appendChild(span);
+      }
+
+      sq.addEventListener('click', () => onSquareClick(r, c));
+      boardEl.appendChild(sq);
+    }
+  }
+
+  updateCaptured();
+  document.getElementById('p1Card').classList.toggle('active', currentTurn==='w');
+  document.getElementById('p2Card').classList.toggle('active', currentTurn==='b');
+}
+
+// ─── Captured pieces display ──────────────────────────────────
+function updateCaptured() {
+  const shouldFlip = myColor === 'b';
+  // capturedByOpp = pieces opp captured (i.e. my pieces), shown at top
+  // capturedByMe = pieces I captured (opp pieces), shown at bottom
+  const topCaptures = shouldFlip ? capturedByMe : capturedByOpp;
+  const bottomCaptures = shouldFlip ? capturedByOpp : capturedByMe;
+
+  function renderCaps(elId, caps) {
+    const el = document.getElementById(elId);
+    el.innerHTML = '<span class="cap-label">จับได้:</span>';
+    caps.forEach(p => {
+      const span = document.createElement('span');
+      span.className = 'captured-piece';
+      span.style.color = p.color === 'w' ? '#fff' : '#ccc';
+      span.style.textShadow = p.color === 'w' ? '0 1px 2px rgba(0,0,0,0.8)' : 'none';
+      span.textContent = GLYPHS[p.color][p.type];
+      el.appendChild(span);
+    });
+  }
+  renderCaps('capturedTop', topCaptures);
+  renderCaps('capturedBottom', bottomCaptures);
+}
+
+// ─── Square click ─────────────────────────────────────────────
+function onSquareClick(r, c) {
+  if (gameOver) return;
+  if (pendingPromo) return;
+  // Only allow moves on your turn
+  if (currentTurn !== myColor) return;
+  // Online: only on your turn
+  if (gameMode !== 'ai' && currentTurn !== myColor) return;
+
+  if (selectedSq) {
+    const mv = legalMoves.find(m => m.r===r && m.c===c);
+    if (mv) {
+      if (mv.special === 'promo') {
+        pendingPromo = {fromR:selectedSq.r, fromC:selectedSq.c, toR:r, toC:c, special:'promo'};
+        showPromoDialog(board[selectedSq.r][selectedSq.c].color);
+        return;
+      }
+      doMove(selectedSq.r, selectedSq.c, r, c, mv.special, null);
+      return;
+    }
+  }
+
+  // Select piece
+  if (board[r][c]?.color === currentTurn) {
+    selectedSq = {r, c};
+    legalMoves = getLegalMoves(board, r, c, enPassant, castleRights);
+    renderBoard();
+    return;
+  }
+
+  // Deselect
+  selectedSq = null;
+  legalMoves = [];
+  renderBoard();
+}
+
+// ─── Do move (local player) ───────────────────────────────────
+function doMove(fromR, fromC, toR, toC, special, promo) {
+  if (gameMode !== 'ai') {
+    channel.send({type:'broadcast', event:'move', payload:{
+      from:{r:fromR,c:fromC}, to:{r:toR,c:toC}, special, promo
+    }});
+  }
+  applyMoveAndUpdate(fromR, fromC, toR, toC, special, promo, true);
+}
+
+// ─── Apply move and update state ─────────────────────────────
+function applyMoveAndUpdate(fromR, fromC, toR, toC, special, promo, isMyMove) {
+  const piece = board[fromR][fromC];
+  const captured = board[toR][toC];
+
+  // Track capture (ep special)
+  if (captured) {
+    if (isMyMove) capturedByMe.push({...captured});
+    else capturedByOpp.push({...captured});
+  }
+  if (special === 'ep') {
+    const cpR = piece.color === 'w' ? toR+1 : toR-1;
+    const epCap = board[cpR][toC];
+    if (epCap) {
+      if (isMyMove) capturedByMe.push({...epCap});
+      else capturedByOpp.push({...epCap});
+    }
+  }
+
+  // Update castle rights
+  const newCR = {...castleRights};
+  if (piece.type==='K') {
+    if (piece.color==='w') { newCR.wK=false; newCR.wQ=false; }
+    else { newCR.bK=false; newCR.bQ=false; }
+  }
+  if (piece.type==='R') {
+    if (fromR===7&&fromC===7) newCR.wK=false;
+    if (fromR===7&&fromC===0) newCR.wQ=false;
+    if (fromR===0&&fromC===7) newCR.bK=false;
+    if (fromR===0&&fromC===0) newCR.bQ=false;
+  }
+  if (toR===7&&toC===7) newCR.wK=false;
+  if (toR===7&&toC===0) newCR.wQ=false;
+  if (toR===0&&toC===7) newCR.bK=false;
+  if (toR===0&&toC===0) newCR.bQ=false;
+  castleRights = newCR;
+
+  // En passant target
+  enPassant = null;
+  if (piece.type==='P' && Math.abs(toR-fromR)===2) {
+    enPassant = {r:(fromR+toR)/2, c:fromC};
+  }
+
+  board = applyMove(board, fromR, fromC, toR, toC, special, promo || 'Q');
+  lastMove = {fromR, fromC, toR, toC};
+  moveHistory.push(boardToFEN(board, currentTurn, castleRights, enPassant, moveHistory));
+  if (currentTurn === 'b') fullMoveNumber++;
+  currentTurn = currentTurn === 'w' ? 'b' : 'w';
+  selectedSq = null;
+  legalMoves = [];
+
+  renderBoard();
+  updateStatusBar();
+
+  // Check game end
+  const opp = piece.color === 'w' ? 'b' : 'w';
+  if (isCheckmate(board, currentTurn, enPassant, castleRights)) {
+    const winner = piece.color;
+    const winnerName = winner === myColor ? myName : oppName;
+    endGame(winner === myColor ? 'win' : 'loss', `รุกฆาต — ${winnerName} ชนะ!`);
+    return;
+  }
+  if (isStalemate(board, currentTurn, enPassant, castleRights)) {
+    endGame('draw', 'เสมอ (หมดท่า)');
+    return;
+  }
+
+  if (gameMode === 'ai' && currentTurn !== myColor) {
+    setTimeout(requestAIMove, 600);
+  }
+}
+
+// ─── Promotion dialog ─────────────────────────────────────────
+function showPromoDialog(color) {
+  const overlay = document.getElementById('promoOverlay');
+  const piecesEl = document.getElementById('promoPieces');
+  piecesEl.innerHTML = '';
+  ['Q','R','B','N'].forEach(type => {
+    const btn = document.createElement('button');
+    btn.className = 'promo-piece-btn';
+    btn.style.color = color === 'w' ? '#fff' : '#111';
+    if (color === 'w') btn.style.textShadow = '0 1px 3px rgba(0,0,0,0.8)';
+    btn.textContent = GLYPHS[color][type];
+    btn.onclick = () => selectPromo(type);
+    piecesEl.appendChild(btn);
+  });
+  overlay.style.display = 'flex';
+}
+
+function selectPromo(type) {
+  document.getElementById('promoOverlay').style.display = 'none';
+  if (!pendingPromo) return;
+  const {fromR, fromC, toR, toC, special} = pendingPromo;
+  pendingPromo = null;
+  doMove(fromR, fromC, toR, toC, special, type);
+}
+
+// ─── AI Move ──────────────────────────────────────────────────
+async function requestAIMove() {
+  if (gameOver) return;
+  document.getElementById('aiThinking').classList.add('show');
+  try {
+    const fen = boardToFEN(board, currentTurn, castleRights, enPassant, moveHistory);
+    const { data, error } = await db.functions.invoke('ai-move-chess', { body: { fen } });
+    if (data?.move) {
+      applyMoveFromUCI(data.move);
+    } else {
+      makeRandomMove();
+    }
+  } catch(e) {
+    makeRandomMove();
+  }
+  document.getElementById('aiThinking').classList.remove('show');
+}
+
+function applyMoveFromUCI(uci) {
+  // e.g. "e2e4" or "e7e8q"
+  try {
+    const fromC = uci.charCodeAt(0) - 97;
+    const fromR = 8 - parseInt(uci[1]);
+    const toC = uci.charCodeAt(2) - 97;
+    const toR = 8 - parseInt(uci[3]);
+    const promoChar = uci[4];
+    const promo = promoChar ? promoChar.toUpperCase() : null;
+    const piece = board[fromR][fromC];
+    if (!piece) { makeRandomMove(); return; }
+    // Determine special
+    let special = null;
+    if (promo) special = 'promo';
+    else if (piece.type==='P' && toC!==fromC && !board[toR][toC]) special = 'ep';
+    else if (piece.type==='K' && Math.abs(toC-fromC)===2) {
+      special = toC > fromC ? 'castle-k' : 'castle-q';
+    }
+    applyMoveAndUpdate(fromR, fromC, toR, toC, special, promo, false);
+  } catch(e) {
+    makeRandomMove();
+  }
+}
+
+function makeRandomMove() {
+  if (gameOver) return;
+  const moves = getAllLegalMoves(board, currentTurn, enPassant, castleRights);
+  if (moves.length === 0) return;
+  const mv = moves[Math.floor(Math.random() * moves.length)];
+  const promo = mv.special === 'promo' ? 'Q' : null;
+  applyMoveAndUpdate(mv.fromR, mv.fromC, mv.r, mv.c, mv.special, promo, false);
+}
+
+// ─── Resign / New game ────────────────────────────────────────
+function resignOrNewGame() {
+  if (gameOver) { restartGame(); return; }
+  if (confirm('ยืนยันการยอมแพ้?')) {
+    if (gameMode !== 'ai' && channel) {
+      channel.send({type:'broadcast', event:'resign', payload:{color: myColor}});
+    }
+    endGame('loss', `${myName} ยอมแพ้`);
+  }
+}
+
+// ─── End game ─────────────────────────────────────────────────
+function endGame(result, message) {
+  gameOver = true;
+  const overlay = document.getElementById('gameOverOverlay');
+  const emoji = document.getElementById('overlayEmoji');
+  const title = document.getElementById('overlayTitle');
+  const sub = document.getElementById('overlaySub');
+  const badge = document.getElementById('statusBadge');
+  badge.className = 'status-badge badge-end';
+  badge.textContent = '■';
+
+  if (result === 'win') {
+    emoji.textContent = '🏆';
+    title.textContent = 'ชนะ!';
+  } else if (result === 'loss') {
+    emoji.textContent = '😔';
+    title.textContent = 'แพ้';
+  } else {
+    emoji.textContent = '🤝';
+    title.textContent = 'เสมอ';
+  }
+  sub.textContent = message;
+  document.getElementById('statusText').textContent = message;
+  overlay.style.display = 'flex';
+
+  saveResult(result, oppName);
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession();
+    if (!data.session) return;
+    await db.from('game_results').insert({
+      player_name: myName,
+      game: 'chess',
+      result,
+      opponent,
+      user_id: data.session.user.id
+    });
+  } catch(_) {}
+}
+
+function restartGame() {
+  document.getElementById('gameOverOverlay').style.display = 'none';
+  if (gameMode === 'ai') {
+    startGame();
+  } else {
+    showScreen('setupScreen');
+  }
+}
+
+function goHome() {
+  if (channel) { db.removeChannel(channel); channel = null; }
+  showScreen('setupScreen');
+}
+
+// ─── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  GameSound.addMuteButton(document.getElementById('muteArea'));
+});
+</script>
+</body>
+</html>
