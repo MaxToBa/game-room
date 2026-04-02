@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNO — GameRoom</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;600;800&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/chat.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07); --border-hover: rgba(255,255,255,0.18);
+    --text: #f0ede8; --muted: #6b6880; --accent: #e8c547;
+    --accent2: #7c6af5; --green: #4fcf8e; --red: #f05a5a;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif; --font-th: 'Noto Sans Thai', sans-serif;
+    --uno-red: #e74c3c; --uno-yellow: #f39c12; --uno-green: #27ae60; --uno-blue: #2980b9;
+  }
+  body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-th); display: flex; flex-direction: column; align-items: center; padding: 24px 16px 48px; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(120px); pointer-events: none; z-index: 0; }
+  .blob-1 { width: 400px; height: 400px; background: rgba(231,76,60,0.1); top: -100px; right: -100px; }
+  .blob-2 { width: 300px; height: 300px; background: rgba(39,174,96,0.06); bottom: 0; left: -80px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .back-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .back-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .game-title { font-family: var(--font-display); font-size: 24px; }
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .status-text { font-size: 14px; font-weight: 600; }
+  .status-badge { font-family: var(--font-ui); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 999px; }
+  .badge-waiting { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .badge-playing { background: rgba(79,207,142,0.15); color: var(--green); }
+  .badge-win { background: rgba(124,106,245,0.15); color: var(--accent2); }
+  .room-info { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+  .room-code-label { font-size: 11px; color: var(--muted); font-family: var(--font-ui); font-weight: 600; margin-bottom: 3px; }
+  .room-code-text { font-family: var(--font-display); font-size: 22px; letter-spacing: 4px; color: var(--accent); }
+  .copy-code-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; font-family: var(--font-ui); font-weight: 600; transition: all 0.2s; }
+
+  /* UNO Cards */
+  .uno-card {
+    width: 68px; height: 104px; border-radius: 12px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; transition: all 0.2s; user-select: none;
+    border: 2px solid rgba(255,255,255,0.15); box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .uno-card .card-center { font-family: var(--font-display); font-size: 28px; font-weight: 900; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.4); z-index: 1; }
+  .uno-card .card-tl { position: absolute; top: 5px; left: 7px; font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.9); font-family: var(--font-ui); line-height: 1; }
+  .uno-card .card-br { position: absolute; bottom: 5px; right: 7px; font-size: 14px; font-weight: 900; color: rgba(255,255,255,0.9); font-family: var(--font-ui); transform: rotate(180deg); line-height: 1; }
+  .uno-card::before { content: ''; position: absolute; inset: 6px; border-radius: 8px; background: rgba(255,255,255,0.12); }
+  .card-red    { background: linear-gradient(145deg, #e74c3c, #c0392b); }
+  .card-yellow { background: linear-gradient(145deg, #f39c12, #d68910); }
+  .card-green  { background: linear-gradient(145deg, #27ae60, #1e8449); }
+  .card-blue   { background: linear-gradient(145deg, #2980b9, #1a6a96); }
+  .card-wild   { background: linear-gradient(145deg, #e74c3c 0% 25%, #f39c12 25% 50%, #27ae60 50% 75%, #2980b9 75% 100%); }
+  .card-back   { background: linear-gradient(145deg, #2c2c3a, #1a1a2e); cursor: default; }
+  .card-back .card-center { font-size: 22px; }
+  .uno-card.playable { cursor: pointer; }
+  .uno-card.playable:hover { transform: translateY(-10px) scale(1.05); box-shadow: 0 12px 28px rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.5); }
+  .uno-card.dim { opacity: 0.45; cursor: not-allowed; }
+  .uno-card.selected { transform: translateY(-16px) scale(1.08); border-color: var(--accent); box-shadow: 0 0 20px rgba(232,197,71,0.5); }
+  .uno-card.big { width: 90px; height: 136px; }
+  .uno-card.big .card-center { font-size: 36px; }
+  .uno-card.big .card-tl { font-size: 17px; top: 7px; left: 9px; }
+  .uno-card.big .card-br { font-size: 17px; bottom: 7px; right: 9px; }
+
+  /* Play area */
+  .play-area { display: flex; align-items: center; justify-content: center; gap: 32px; margin: 20px 0; }
+  .pile-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: center; margin-top: 8px; }
+  .draw-pile { cursor: pointer; transition: all 0.2s; }
+  .draw-pile:hover { transform: translateY(-4px); }
+  .draw-pile:hover .uno-card { border-color: rgba(232,197,71,0.6); }
+  .color-indicator { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3); margin: 0 auto 4px; transition: background 0.3s; }
+
+  /* Opponent area */
+  .opponent-area { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 18px; margin-bottom: 16px; }
+  .opp-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .opp-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent2); display: flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: #fff; overflow: hidden; flex-shrink: 0; }
+  .opp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .opp-name { font-family: var(--font-ui); font-size: 13px; font-weight: 700; }
+  .opp-count { margin-left: auto; background: var(--surface2); border: 1px solid var(--border); padding: 4px 12px; border-radius: 999px; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--accent); }
+  .opp-cards { display: flex; gap: -10px; overflow: hidden; flex-wrap: nowrap; }
+  .opp-cards .uno-card { width: 32px; height: 50px; border-radius: 6px; margin-right: -14px; box-shadow: none; }
+  .opp-cards .uno-card .card-center, .opp-cards .uno-card .card-tl, .opp-cards .uno-card .card-br { display: none; }
+
+  /* Player hand */
+  .hand-area { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  .hand-label { font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .hand-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; min-height: 112px; align-items: flex-end; }
+  .hand-cards::-webkit-scrollbar { height: 4px; }
+  .hand-cards::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+  /* UNO button */
+  .uno-btn { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; border: none; padding: 12px 24px; border-radius: 14px; font-family: var(--font-display); font-size: 20px; cursor: pointer; transition: all 0.2s; display: none; width: 100%; margin-bottom: 8px; letter-spacing: 2px; box-shadow: 0 4px 16px rgba(231,76,60,0.4); }
+  .uno-btn.show { display: block; animation: unoPulse 0.8s ease infinite alternate; }
+  .uno-btn:hover { transform: scale(1.02); box-shadow: 0 6px 24px rgba(231,76,60,0.6); }
+  @keyframes unoPulse { from { transform: scale(1); } to { transform: scale(1.03); } }
+
+  /* Action buttons */
+  .action-btn { width: 100%; background: var(--accent2); color: #fff; border: none; padding: 13px; border-radius: 14px; font-family: var(--font-ui); font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; }
+  .action-btn:hover { background: #9d8fff; transform: translateY(-1px); }
+  .action-btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .action-btn.secondary:hover { border-color: var(--border-hover); background: var(--surface2); }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Setup / Name screens */
+  .setup-screen { text-align: center; padding: 20px 0; }
+  .setup-title { font-family: var(--font-display); font-size: 36px; margin-bottom: 8px; }
+  .setup-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .setup-options { display: flex; flex-direction: column; gap: 12px; }
+  .mode-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; text-align: left; }
+  .mode-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .mode-card-title { font-family: var(--font-ui); font-size: 16px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .mode-card-sub { font-size: 13px; color: var(--muted); }
+  .form-group { margin-bottom: 16px; text-align: left; }
+  .form-label { display: block; font-family: var(--font-ui); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .form-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; color: var(--text); font-family: var(--font-th); font-size: 16px; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--accent2); }
+  .form-input::placeholder { color: var(--muted); }
+  .form-input.code-input { text-align: center; letter-spacing: 4px; text-transform: uppercase; font-size: 20px; }
+  .name-screen { padding: 20px 0; }
+  .coin-flip { text-align: center; padding: 32px 0; }
+  .coin { font-size: 64px; display: block; margin-bottom: 16px; animation: spin 0.6s ease-in-out; }
+  .coin-text { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .coin-sub { color: var(--muted); font-size: 14px; }
+  .ai-thinking { display: none; align-items: center; gap: 10px; justify-content: center; padding: 10px; color: var(--muted); font-size: 14px; font-family: var(--font-ui); }
+  .ai-thinking.show { display: flex; }
+  .dot-pulse { display: flex; gap: 4px; }
+  .dot-pulse span { width: 6px; height: 6px; background: var(--accent2); border-radius: 50%; animation: dotPulse 1.2s ease-in-out infinite; }
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+  .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: var(--bg); padding: 12px 24px; border-radius: 999px; font-family: var(--font-ui); font-weight: 700; font-size: 14px; opacity: 0; transition: all 0.3s ease; z-index: 300; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Color Picker Overlay */
+  .color-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 200; }
+  .color-overlay.show { display: flex; }
+  .color-picker { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; text-align: center; }
+  .color-picker-title { font-family: var(--font-display); font-size: 24px; margin-bottom: 24px; }
+  .color-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .color-pick-btn { padding: 20px; border: none; border-radius: 16px; cursor: pointer; font-family: var(--font-ui); font-size: 16px; font-weight: 700; color: #fff; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .color-pick-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+  .color-pick-red    { background: linear-gradient(145deg, #e74c3c, #c0392b); }
+  .color-pick-yellow { background: linear-gradient(145deg, #f39c12, #d68910); }
+  .color-pick-green  { background: linear-gradient(145deg, #27ae60, #1e8449); }
+  .color-pick-blue   { background: linear-gradient(145deg, #2980b9, #1a6a96); }
+
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes dotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+  @keyframes spin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(720deg); } }
+  @keyframes cardPlay { 0% { transform: scale(0.8) translateY(-20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+  .card-played { animation: cardPlay 0.25s ease both; }
+</style>
+</head>
+<body>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="container">
+  <div class="top-bar">
+    <a href="../index.html" class="back-btn">← กลับ</a>
+    <div class="game-title">🎴 UNO</div>
+    <div style="width:80px"></div>
+  </div>
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="setup-screen fade-in">
+    <div class="setup-title">เลือกโหมด</div>
+    <div class="setup-sub">แจกไพ่ เล่น UNO! ชนะให้ได้!</div>
+    <div class="setup-options">
+      <div class="mode-card" onclick="showNameScreen('ai')">
+        <div class="mode-card-title">🤖 เล่นกับ AI</div>
+        <div class="mode-card-sub">สู้กับ AI อันตราย — อย่าลืมกด UNO!</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('create')">
+        <div class="mode-card-title">👥 สร้างห้องเชิญเพื่อน</div>
+        <div class="mode-card-sub">สร้าง room code แล้วส่งให้เพื่อน</div>
+      </div>
+      <div class="mode-card" onclick="showNameScreen('join')">
+        <div class="mode-card-title">🔑 เข้าร่วมห้อง</div>
+        <div class="mode-card-sub">มี room code จากเพื่อนแล้ว กรอกเพื่อเข้าเลย</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Name Screen -->
+  <div id="nameScreen" style="display:none" class="name-screen fade-in">
+    <div class="setup-title" style="text-align:center;margin-bottom:8px">ใส่ชื่อของคุณ</div>
+    <div class="setup-sub" style="text-align:center">ชื่อนี้จะแสดงให้เพื่อนเห็น</div>
+    <div class="form-group">
+      <label class="form-label">ชื่อผู้เล่น</label>
+      <input class="form-input" id="nameInput" placeholder="เช่น MaxToBa" maxlength="16">
+    </div>
+    <div id="joinCodeGroup" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Room Code</label>
+        <input class="form-input code-input" id="joinInput" placeholder="AB3X9K" maxlength="6">
+      </div>
+    </div>
+    <button class="action-btn" onclick="handleNameNext()">ถัดไป →</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')">← ย้อนกลับ</button>
+  </div>
+
+  <!-- Coin Flip Screen -->
+  <div id="coinScreen" style="display:none" class="coin-flip fade-in">
+    <span class="coin" id="coinEmoji">🪙</span>
+    <div class="coin-text" id="coinText">สุ่มว่าใครไปก่อน...</div>
+    <div class="coin-sub" id="coinSub">กำลังโยนเหรียญ</div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="gameScreen" style="display:none" class="fade-in">
+    <div class="room-info" id="roomInfo" style="display:none">
+      <div>
+        <div class="room-code-label">Room Code</div>
+        <div class="room-code-text" id="roomCodeDisplay">—</div>
+      </div>
+      <button class="copy-code-btn" onclick="copyRoomCode()">📋 คัดลอก</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-text" id="statusText">กำลังโหลด...</div>
+      <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
+    </div>
+
+    <!-- Opponent -->
+    <div class="opponent-area" id="opponentArea">
+      <div class="opp-header">
+        <div class="opp-avatar" id="oppAvatar"><span>?</span></div>
+        <div class="opp-name" id="oppName">ผู้เล่น 2</div>
+        <div class="opp-count"><span id="oppCardCount">7</span> ใบ</div>
+      </div>
+      <div class="opp-cards" id="oppCards"></div>
+    </div>
+
+    <!-- Play area: discard + draw -->
+    <div class="play-area">
+      <div style="text-align:center">
+        <div id="discardPile"><div class="uno-card card-back big"><div class="card-center">🎴</div></div></div>
+        <div class="pile-label">กองทิ้ง</div>
+      </div>
+      <div style="text-align:center">
+        <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:4px">
+          <div class="color-indicator" id="colorIndicator"></div>
+          <span style="font-family:var(--font-ui);font-size:11px;color:var(--muted)" id="colorLabel">—</span>
+        </div>
+      </div>
+      <div class="draw-pile" onclick="onDrawPile()">
+        <div class="uno-card card-back big"><div class="card-center">🎴</div></div>
+        <div class="pile-label">หยิบ (<span id="deckCount">0</span>)</div>
+      </div>
+    </div>
+
+    <!-- UNO button -->
+    <button class="uno-btn" id="unoBtn" onclick="callUno()">UNO! 🎴</button>
+
+    <!-- Player hand -->
+    <div class="hand-area">
+      <div class="hand-label">
+        <span>ไพ่ในมือคุณ</span>
+        <span id="myCardCount" style="color:var(--accent);font-size:13px">0 ใบ</span>
+      </div>
+      <div class="hand-cards" id="handCards"></div>
+    </div>
+
+    <div class="ai-thinking" id="aiThinking">
+      <span>AI กำลังคิด</span>
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+    </div>
+
+    <div id="chatContainer" style="display:none;margin-top:4px;margin-bottom:8px"></div>
+    <button class="action-btn secondary" onclick="resetGame()" style="margin-top:4px">🔄 เล่นใหม่</button>
+    <button class="action-btn secondary" onclick="showScreen('setupScreen')" style="margin-top:0">← กลับหน้าหลัก</button>
+  </div>
+</div>
+
+<!-- Color Picker Overlay -->
+<div class="color-overlay" id="colorOverlay">
+  <div class="color-picker">
+    <div class="color-picker-title">เลือกสี</div>
+    <div class="color-btns">
+      <button class="color-pick-btn color-pick-red"    onclick="chooseColor('red')">🔴 แดง</button>
+      <button class="color-pick-btn color-pick-yellow" onclick="chooseColor('yellow')">🟡 เหลือง</button>
+      <button class="color-pick-btn color-pick-green"  onclick="chooseColor('green')">🟢 เขียว</button>
+      <button class="color-pick-btn color-pick-blue"   onclick="chooseColor('blue')">🔵 น้ำเงิน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// db comes from ../js/supabase.js
+
+// ─── Master Deck (108 cards) ────────────────────────────────
+const COLORS = ['red', 'yellow', 'green', 'blue']
+
+function buildMasterDeck() {
+  const cards = []
+  let id = 0
+  for (const color of COLORS) {
+    cards.push({ id: id++, color, type: 'number', value: '0' })
+    for (let v = 1; v <= 9; v++) {
+      cards.push({ id: id++, color, type: 'number', value: String(v) })
+      cards.push({ id: id++, color, type: 'number', value: String(v) })
+    }
+    for (let i = 0; i < 2; i++) {
+      cards.push({ id: id++, color, type: 'skip',    value: 'skip' })
+      cards.push({ id: id++, color, type: 'reverse', value: 'reverse' })
+      cards.push({ id: id++, color, type: 'draw2',   value: 'draw2' })
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    cards.push({ id: id++, color: 'wild', type: 'wild',  value: 'wild' })
+    cards.push({ id: id++, color: 'wild', type: 'wild4', value: 'wild4' })
+  }
+  return cards // 108 cards, id 0-107
+}
+
+const MASTER = buildMasterDeck()
+const MASTER_MAP = Object.fromEntries(MASTER.map(c => [c.id, c]))
+
+function cardById(id) { return MASTER_MAP[id] }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+function getSymbol(card) {
+  const m = { skip: '⊘', reverse: '↺', draw2: '+2', wild: '🌈', wild4: '+4' }
+  return m[card.type] || card.value
+}
+
+// ─── Game State ─────────────────────────────────────────────
+let deck = []        // card IDs remaining
+let hands = [[], []] // hands[0]=me, hands[1]=opp (card IDs)
+let discard = []     // card IDs, top = last
+let currentTurn = 0  // 0=player0, 1=player1
+let currentColor = 'red'
+let gameOver = false
+let myIdx = 0        // which player am I?
+let oppIdx = 1
+let gameMode = null  // 'ai'|'create'|'join'
+let roomId = null
+let isHost = false
+let realtimeChannel = null
+let pendingMode = null
+let gameChat = null
+let myName = ''
+let myAvatarUrl = null
+let oppName = 'AI'
+let oppAvatarUrl = null
+let pendingAction = false // prevent double actions
+let unoCalled = false     // did I call UNO when hand went to 1?
+
+// ─── Profile ────────────────────────────────────────────────
+async function loadMyProfile() {
+  try {
+    const { data } = await db.auth.getSession()
+    if (data.session) {
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      const defaultName = meta.full_name?.split(' ')[0] || meta.display_name || user.email.split('@')[0]
+      myAvatarUrl = meta.avatar_url || null
+      const { data: profile } = await db.from('profiles').select('username, avatar_url').eq('id', user.id).maybeSingle()
+      const name = profile?.username || defaultName
+      if (profile?.avatar_url) myAvatarUrl = profile.avatar_url
+      document.getElementById('nameInput').value = name
+      return
+    }
+  } catch (_) {}
+  const saved = localStorage.getItem('playerName')
+  if (saved) document.getElementById('nameInput').value = saved
+}
+
+function setAvatar(elId, url, name) {
+  const el = document.getElementById(elId)
+  if (!el) return
+  const initial = (name || '?')[0].toUpperCase()
+  el.innerHTML = url
+    ? `<img src="${url}" alt="${initial}" onerror="this.parentElement.innerHTML='<span>${initial}</span>'">`
+    : `<span>${initial}</span>`
+}
+
+// ─── Screens ─────────────────────────────────────────────────
+function showScreen(id) {
+  ['setupScreen','nameScreen','coinScreen','gameScreen'].forEach(s => {
+    document.getElementById(s).style.display = 'none'
+  })
+  document.getElementById(id).style.display = 'block'
+}
+
+function showNameScreen(mode) {
+  pendingMode = mode
+  document.getElementById('joinCodeGroup').style.display = mode === 'join' ? 'block' : 'none'
+  document.getElementById('nameInput').value = ''
+  document.getElementById('joinInput').value = ''
+  showScreen('nameScreen')
+  loadMyProfile()
+}
+
+function handleNameNext() {
+  const name = document.getElementById('nameInput').value.trim()
+  if (!name) { showToast('กรุณาใส่ชื่อก่อนนะครับ'); return }
+  myName = name
+  gameMode = pendingMode
+  if (pendingMode === 'ai') {
+    showCoinFlip()
+  } else if (pendingMode === 'create') {
+    roomId = Math.random().toString(36).substring(2, 8).toUpperCase()
+    isHost = true
+    showCoinFlip()
+  } else {
+    const code = document.getElementById('joinInput').value.trim().toUpperCase()
+    if (code.length < 4) { showToast('กรุณากรอก Room Code ให้ครบ'); return }
+    roomId = code
+    isHost = false
+    startOnlineGame()
+  }
+}
+
+function showCoinFlip() {
+  showScreen('coinScreen')
+  const goFirst = Math.random() < 0.5
+  document.getElementById('coinEmoji').textContent = '🪙'
+  document.getElementById('coinText').textContent = 'กำลังโยนเหรียญ...'
+  document.getElementById('coinSub').textContent = 'สุ่มว่าใครได้ไปก่อน'
+  setTimeout(() => {
+    myIdx = goFirst ? 0 : 1
+    oppIdx = goFirst ? 1 : 0
+    if (goFirst) {
+      document.getElementById('coinEmoji').textContent = '⭐'
+      document.getElementById('coinText').textContent = `${myName} ได้ไปก่อน!`
+      document.getElementById('coinSub').textContent = 'คุณจะออกก่อน'
+    } else {
+      document.getElementById('coinEmoji').textContent = '🎲'
+      document.getElementById('coinText').textContent = `${gameMode === 'ai' ? 'AI' : 'เพื่อน'} ได้ไปก่อน!`
+      document.getElementById('coinSub').textContent = 'ฝ่ายตรงข้ามออกก่อน'
+    }
+    setTimeout(() => {
+      if (gameMode === 'ai') startVsAI()
+      else startOnlineGame()
+    }, 1500)
+  }, 1200)
+}
+
+// ─── VS AI ──────────────────────────────────────────────────
+function startVsAI() {
+  oppName = 'AI 🤖'
+  oppAvatarUrl = null
+  initGame()
+  showGameScreen()
+  renderAll()
+  if (currentTurn === oppIdx) setTimeout(doAITurn, 800)
+}
+
+// ─── Online Multiplayer ──────────────────────────────────────
+function startOnlineGame() {
+  realtimeChannel?.unsubscribe()
+  realtimeChannel = db.channel(`uno:${roomId}`)
+    .on('broadcast', { event: 'uno' }, ({ payload }) => handleOnlineEvent(payload))
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        if (isHost) {
+          // Host: wait for guest, show waiting
+          document.getElementById('roomInfo').style.display = 'flex'
+          document.getElementById('roomCodeDisplay').textContent = roomId
+          showScreen('gameScreen')
+          setStatus('รอเพื่อนเข้าห้อง...', 'badge-waiting')
+          document.getElementById('handCards').innerHTML = '<div style="color:var(--muted);font-size:14px;padding:20px">รอเพื่อนเข้าร่วม...</div>'
+        } else {
+          // Guest: announce join
+          await realtimeChannel.send({
+            type: 'broadcast', event: 'uno',
+            payload: { type: 'join', name: myName, avatar: myAvatarUrl }
+          })
+        }
+      }
+    })
+}
+
+async function handleOnlineEvent(payload) {
+  if (payload.type === 'join' && isHost) {
+    oppName = payload.name || 'เพื่อน'
+    oppAvatarUrl = payload.avatar || null
+    // Deal cards and start game
+    initGame()
+    showGameScreen()
+    renderAll()
+    // Send full state to guest
+    await broadcastState('start')
+  }
+
+  if (payload.type === 'start' && !isHost) {
+    applyRemoteState(payload)
+    myIdx = 1; oppIdx = 0
+    oppName = payload.hostName || 'เพื่อน'
+    oppAvatarUrl = payload.hostAvatar || null
+    showGameScreen()
+    renderAll()
+    showToast('เกมเริ่มแล้ว!')
+  }
+
+  if (payload.type === 'state') {
+    applyRemoteState(payload)
+    renderAll()
+    if (!gameOver && currentTurn === myIdx) {
+      setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
+    }
+  }
+}
+
+async function broadcastState(type = 'state') {
+  if (!realtimeChannel) return
+  await realtimeChannel.send({
+    type: 'broadcast', event: 'uno',
+    payload: {
+      type, deck, hands, discard, currentTurn, currentColor, gameOver,
+      hostName: myName, hostAvatar: myAvatarUrl
+    }
+  })
+}
+
+function applyRemoteState(payload) {
+  deck = payload.deck || []
+  hands = payload.hands || [[], []]
+  discard = payload.discard || []
+  currentTurn = payload.currentTurn ?? 0
+  currentColor = payload.currentColor || 'red'
+  gameOver = payload.gameOver || false
+}
+
+// ─── Game Init ───────────────────────────────────────────────
+function initGame() {
+  const deckIds = shuffle(MASTER.map(c => c.id))
+  hands = [[], []]
+  for (let i = 0; i < 7; i++) {
+    hands[0].push(deckIds.pop())
+    hands[1].push(deckIds.pop())
+  }
+  // First discard: skip wilds
+  let firstCard
+  do { firstCard = deckIds.pop() } while (cardById(firstCard).color === 'wild')
+  discard = [firstCard]
+  deck = deckIds
+  currentColor = cardById(firstCard).color
+  currentTurn = myIdx === 0 ? 0 : 1 // depends on coin flip
+  gameOver = false
+  unoCalled = false
+  pendingAction = false
+}
+
+// ─── Show Game Screen ────────────────────────────────────────
+function showGameScreen() {
+  showScreen('gameScreen')
+  if (gameMode !== 'ai') {
+    document.getElementById('roomInfo').style.display = 'flex'
+    document.getElementById('roomCodeDisplay').textContent = roomId
+  } else {
+    document.getElementById('roomInfo').style.display = 'none'
+  }
+  // Chat for online mode
+  if (gameMode !== 'ai') {
+    if (gameChat) { gameChat.destroy(); gameChat = null }
+    const chatEl = document.getElementById('chatContainer')
+    chatEl.style.display = 'block'
+    chatEl.innerHTML = ''
+    gameChat = new GameChat({ roomId, myName, myAvatar: myAvatarUrl, gameName: 'uno', container: chatEl })
+    gameChat.mount()
+  }
+  document.getElementById('oppName').textContent = oppName
+  setAvatar('oppAvatar', oppAvatarUrl, oppName)
+}
+
+// ─── canPlay ─────────────────────────────────────────────────
+function canPlay(cardId) {
+  const card = cardById(cardId)
+  const topId = discard[discard.length - 1]
+  if (!topId) return true
+  const top = cardById(topId)
+  if (card.type === 'wild' || card.type === 'wild4') return true
+  if (card.color === currentColor) return true
+  if (card.type !== 'number' && card.type === top.type) return true
+  if (card.type === 'number' && top.type === 'number' && card.value === top.value) return true
+  return false
+}
+
+// ─── Play Card ───────────────────────────────────────────────
+async function selectCard(idx) {
+  if (gameOver || pendingAction) return
+  if (currentTurn !== myIdx) { showToast('ยังไม่ถึงตาคุณ!'); return }
+  const cardId = hands[myIdx][idx]
+  if (!canPlay(cardId)) { showToast('ออกไพ่ใบนี้ไม่ได้'); return }
+
+  const card = cardById(cardId)
+  pendingAction = true
+
+  let chosenColor = null
+  if (card.type === 'wild' || card.type === 'wild4') {
+    chosenColor = await pickColor()
+  }
+
+  // Remove from hand
+  hands[myIdx].splice(idx, 1)
+  discard.push(cardId)
+
+  // Apply effect
+  applyCardEffect(card, chosenColor)
+
+  // Check UNO
+  if (hands[myIdx].length === 1) {
+    document.getElementById('unoBtn').classList.add('show')
+    unoCalled = false
+  } else {
+    document.getElementById('unoBtn').classList.remove('show')
+  }
+
+  // Check win
+  if (hands[myIdx].length === 0) {
+    pendingAction = false
+    await endGame(true)
+    return
+  }
+
+  pendingAction = false
+  renderAll()
+
+  if (gameMode === 'ai') {
+    if (currentTurn === oppIdx) setTimeout(doAITurn, 900)
+  } else {
+    await broadcastState()
+    setStatus(`รอ ${oppName}...`, 'badge-waiting')
+  }
+}
+
+function applyCardEffect(card, chosenColor) {
+  if (card.type === 'wild' || card.type === 'wild4') {
+    currentColor = chosenColor || 'red'
+  } else {
+    currentColor = card.color
+  }
+
+  // In 2-player: reverse = skip
+  switch (card.type) {
+    case 'skip':
+    case 'reverse':
+      // Opponent's turn is skipped → it's still my turn (but switch then switch back)
+      // Actually: skip = next player loses their turn, so current player goes again
+      // We just don't switch turn (currentTurn stays the same)
+      // But we need to handle it as: skip next, so current stays
+      // currentTurn stays the same
+      break
+    case 'draw2':
+      drawCards(oppIdx, 2)
+      // opp's turn is skipped, stay on current player
+      break
+    case 'wild4':
+      drawCards(oppIdx, 4)
+      // opp's turn is skipped, stay on current player
+      break
+    default:
+      // Normal card: switch turns
+      currentTurn = currentTurn === 0 ? 1 : 0
+  }
+  // For skip/reverse/draw2/wild4 in 2-player: current player goes again
+  // Actually standard rules: after skip/draw2/wild4, CURRENT player gets to go again only for skip/reverse in 2-player
+  // Draw2/wild4: opponent draws then loses turn, so current player goes again
+  // For simplicity: skip, reverse, draw2, wild4 all keep the same currentTurn
+}
+
+function drawCards(playerIdx, count) {
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) reshuffleDeck()
+    if (deck.length === 0) break
+    hands[playerIdx].push(deck.pop())
+  }
+}
+
+function reshuffleDeck() {
+  if (discard.length <= 1) return
+  const top = discard[discard.length - 1]
+  const reshuffled = discard.slice(0, discard.length - 1)
+  discard = [top]
+  deck = shuffle(reshuffled)
+  showToast('สับไพ่ใหม่แล้ว!')
+}
+
+// ─── Draw from pile ───────────────────────────────────────────
+async function onDrawPile() {
+  if (gameOver || pendingAction) return
+  if (currentTurn !== myIdx) { showToast('ยังไม่ถึงตาคุณ!'); return }
+  pendingAction = true
+
+  if (deck.length === 0) reshuffleDeck()
+  if (deck.length === 0) { pendingAction = false; showToast('ไม่มีไพ่เหลือแล้ว'); return }
+
+  const drawnId = deck.pop()
+  hands[myIdx].push(drawnId)
+  showToast(`หยิบ ${getSymbol(cardById(drawnId))} มาแล้ว`)
+
+  // If drawn card can be played, auto-highlight (but don't auto-play)
+  // Switch turn after drawing (can't play, turn passes)
+  // Actually: in UNO, after drawing you CAN play the drawn card if it's playable
+  // For simplicity: drawn card is added to hand, turn passes
+  currentTurn = currentTurn === 0 ? 1 : 0
+
+  pendingAction = false
+  renderAll()
+
+  if (gameMode === 'ai') {
+    if (currentTurn === oppIdx) setTimeout(doAITurn, 900)
+  } else {
+    await broadcastState()
+    setStatus(`รอ ${oppName}...`, 'badge-waiting')
+  }
+}
+
+// ─── UNO Button ──────────────────────────────────────────────
+function callUno() {
+  unoCalled = true
+  document.getElementById('unoBtn').classList.remove('show')
+  showToast('UNO! 🎴')
+}
+
+// ─── AI Turn ─────────────────────────────────────────────────
+async function doAITurn() {
+  if (gameOver || currentTurn !== oppIdx) return
+  document.getElementById('aiThinking').classList.add('show')
+
+  let result = null
+  try {
+    const { data, error } = await db.functions.invoke('ai-move-uno', {
+      body: { hand: hands[oppIdx], discard, currentColor }
+    })
+    if (!error && data?.action) result = data
+  } catch (_) {}
+
+  document.getElementById('aiThinking').classList.remove('show')
+
+  if (!result) result = localAI()
+  if (!result) return
+
+  if (result.action === 'draw') {
+    if (deck.length === 0) reshuffleDeck()
+    if (deck.length > 0) {
+      hands[oppIdx].push(deck.pop())
+    }
+    currentTurn = currentTurn === 0 ? 1 : 0
+    renderAll()
+    if (currentTurn === myIdx) setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
+    return
+  }
+
+  // AI plays a card
+  const cardId = result.cardId
+  const chosenColor = result.chosenColor || null
+  const card = cardById(cardId)
+  const handIdx = hands[oppIdx].indexOf(cardId)
+  if (handIdx === -1) { currentTurn = currentTurn === 0 ? 1 : 0; renderAll(); return }
+
+  hands[oppIdx].splice(handIdx, 1)
+  discard.push(cardId)
+  applyCardEffect(card, chosenColor)
+
+  if (hands[oppIdx].length === 1) showToast(`${oppName}: UNO! 🎴`)
+  if (hands[oppIdx].length === 0) {
+    await endGame(false)
+    return
+  }
+
+  renderAll()
+  if (currentTurn === myIdx) setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
+  else setTimeout(doAITurn, 900)
+}
+
+function localAI() {
+  const hand = hands[oppIdx]
+  const playable = hand.filter(id => canPlay(id))
+  if (playable.length === 0) return { action: 'draw' }
+
+  // Priority: wild4 > draw2 > wild > skip/reverse > number
+  const priority = ['wild4', 'draw2', 'wild', 'skip', 'reverse', 'number']
+  playable.sort((a, b) => {
+    const ca = cardById(a), cb = cardById(b)
+    return priority.indexOf(ca.type) - priority.indexOf(cb.type)
+  })
+  const cardId = playable[0]
+  const card = cardById(cardId)
+
+  let chosenColor = 'red'
+  if (card.type === 'wild' || card.type === 'wild4') {
+    const cnt = { red: 0, yellow: 0, green: 0, blue: 0 }
+    hand.forEach(id => { const c = cardById(id); if (cnt[c.color] !== undefined) cnt[c.color]++ })
+    chosenColor = Object.entries(cnt).sort((a,b) => b[1]-a[1])[0][0]
+  }
+  return { action: 'play', cardId, chosenColor }
+}
+
+// ─── Color Picker ─────────────────────────────────────────────
+function pickColor() {
+  return new Promise(resolve => {
+    document.getElementById('colorOverlay').classList.add('show')
+    window._colorResolve = resolve
+  })
+}
+
+function chooseColor(color) {
+  document.getElementById('colorOverlay').classList.remove('show')
+  if (window._colorResolve) { window._colorResolve(color); window._colorResolve = null }
+}
+
+// ─── End Game ─────────────────────────────────────────────────
+async function endGame(iWon) {
+  gameOver = true
+  if (gameChat) gameChat.gameEvent('win', { winner: iWon ? myName : oppName })
+  setStatus(iWon ? `🎉 ${myName} ชนะ! ไพ่หมดแล้ว!` : `😔 ${oppName} ชนะ!`, 'badge-win')
+  showToast(iWon ? '🏆 ชนะแล้ว! ยอดเยี่ยม!' : '😢 แพ้แล้ว ลองใหม่!')
+  renderAll()
+  await saveResult(iWon ? 'win' : 'loss', oppName)
+}
+
+async function saveResult(result, opponent) {
+  try {
+    const { data } = await db.auth.getSession()
+    if (!data.session) return
+    await db.from('game_results').insert({
+      player_name: myName, game: 'uno', result, opponent,
+      user_id: data.session.user.id
+    })
+  } catch (_) {}
+}
+
+// ─── Render ───────────────────────────────────────────────────
+function renderAll() {
+  renderHand()
+  renderDiscard()
+  renderOpponent()
+  updateColorIndicator()
+  document.getElementById('deckCount').textContent = deck.length
+  document.getElementById('myCardCount').textContent = `${hands[myIdx].length} ใบ`
+  // Active turn indicator
+  if (!gameOver) {
+    const isMy = currentTurn === myIdx
+    setStatus(isMy ? 'ตาของคุณ! เลือกไพ่หรือหยิบ' : `รอ ${oppName}...`, isMy ? 'badge-playing' : 'badge-waiting')
+  }
+}
+
+function renderHand() {
+  const container = document.getElementById('handCards')
+  const hand = hands[myIdx] || []
+  const isMyTurn = currentTurn === myIdx && !gameOver
+  container.innerHTML = hand.map((id, i) => {
+    const card = cardById(id)
+    const sym = getSymbol(card)
+    const playable = isMyTurn && canPlay(id)
+    const cls = `uno-card card-${card.color}${playable ? ' playable' : ' dim'}`
+    return `<div class="${cls}" onclick="selectCard(${i})">
+      <div class="card-tl">${sym}</div>
+      <div class="card-center">${sym}</div>
+      <div class="card-br">${sym}</div>
+    </div>`
+  }).join('')
+}
+
+function renderDiscard() {
+  const topId = discard[discard.length - 1]
+  if (!topId) return
+  const card = cardById(topId)
+  const sym = getSymbol(card)
+  const colorClass = card.color === 'wild' && currentColor ? `card-${currentColor}` : `card-${card.color}`
+  document.getElementById('discardPile').innerHTML =
+    `<div class="uno-card big ${colorClass} card-played">
+      <div class="card-tl">${sym}</div>
+      <div class="card-center">${sym}</div>
+      <div class="card-br">${sym}</div>
+    </div>`
+}
+
+function renderOpponent() {
+  const count = (hands[oppIdx] || []).length
+  document.getElementById('oppCardCount').textContent = count
+  const container = document.getElementById('oppCards')
+  container.innerHTML = Array(Math.min(count, 14)).fill(0).map(() =>
+    `<div class="uno-card card-back"><div class="card-center"></div></div>`
+  ).join('')
+}
+
+function updateColorIndicator() {
+  const colors = { red: '#e74c3c', yellow: '#f39c12', green: '#27ae60', blue: '#2980b9' }
+  const labels = { red: 'แดง', yellow: 'เหลือง', green: 'เขียว', blue: 'น้ำเงิน' }
+  document.getElementById('colorIndicator').style.background = colors[currentColor] || '#666'
+  document.getElementById('colorLabel').textContent = labels[currentColor] || ''
+}
+
+// ─── Reset ────────────────────────────────────────────────────
+function resetGame() {
+  if (gameChat) { gameChat.destroy(); gameChat = null }
+  document.getElementById('chatContainer').style.display = 'none'
+  realtimeChannel?.unsubscribe()
+  realtimeChannel = null
+  gameOver = false
+  pendingAction = false
+  document.getElementById('unoBtn').classList.remove('show')
+  document.getElementById('colorOverlay').classList.remove('show')
+  showScreen('setupScreen')
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+function setStatus(text, badgeClass) {
+  document.getElementById('statusText').textContent = text
+  const badge = document.getElementById('statusBadge')
+  badge.className = `status-badge ${badgeClass}`
+  const labels = { 'badge-waiting': 'รอ', 'badge-playing': 'กำลังเล่น', 'badge-win': 'จบเกม' }
+  badge.textContent = labels[badgeClass] || 'รอ'
+}
+
+function copyRoomCode() {
+  navigator.clipboard?.writeText(roomId || '').then(() => showToast('คัดลอก Room Code แล้ว!'))
+    .catch(() => showToast(roomId || ''))
+}
+
+let toastTimer
+function showToast(msg) {
+  clearTimeout(toastTimer)
+  const t = document.getElementById('toast')
+  t.textContent = msg
+  t.classList.add('show')
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600)
+}
+
+// Auto-detect ?mode=
+window.addEventListener('DOMContentLoaded', () => {
+  const mode = new URLSearchParams(location.search).get('mode')
+  if (mode === 'ai' || mode === 'create' || mode === 'join') showNameScreen(mode)
+})
+</script>
+</body>
+</html>
