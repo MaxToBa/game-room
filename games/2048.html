@@ -576,7 +576,7 @@ async function endSolo(result) {
   document.getElementById('gameOverScore').innerHTML =
     `คะแนน: <strong>${myScore}</strong> · ไทล์: <strong>${soloBestTile}</strong> · เวลา: ${timeStr}`;
   document.getElementById('gameOverOverlay').style.display = 'flex';
-  await saveResult(isWin ? 'win' : 'lose', 'AI');
+  await saveResult(isWin ? 'win' : 'loss', 'AI');
 }
 
 // ─── VS Mode ──────────────────────────────────────────────────────────────────
@@ -737,7 +737,7 @@ async function endVS(isTimeUp) {
   clearInterval(timerInterval);
   const iWin = myScore > theirScore;
   const isDraw = myScore === theirScore;
-  const result = isDraw ? 'draw' : (iWin ? 'win' : 'lose');
+  const result = isDraw ? 'draw' : (iWin ? 'win' : 'loss');
 
   gameChat?.gameEvent(result === 'win' ? 'win' : result === 'lose' ? 'lose' : 'draw');
   await saveResult(result, theirName);

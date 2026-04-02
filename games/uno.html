@@ -546,7 +546,7 @@ function initGame() {
   discard = [firstCard]
   deck = deckIds
   currentColor = cardById(firstCard).color
-  currentTurn = myIdx === 0 ? 0 : 1 // depends on coin flip
+  currentTurn = 0 // player 0 always goes first; myIdx/oppIdx determine who player 0 is // depends on coin flip
   gameOver = false
   unoCalled = false
   pendingAction = false
