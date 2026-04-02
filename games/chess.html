@@ -1186,8 +1186,13 @@ function goHome() {
 }
 
 // ─── Init ─────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   GameSound.addMuteButton(document.getElementById('muteArea'));
+  const mode = new URLSearchParams(location.search).get('mode');
+  if (mode === 'ai') await autoStart('ai');
+  else if (mode === 'create') await autoStart('create');
+  else if (mode === 'join') { await loadMyProfile(); showJoinRoom(); }
+  else await loadMyProfile(); // pre-fill name in background
 });
 </script>
 </body>
