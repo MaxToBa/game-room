@@ -516,11 +516,11 @@ function clickSquare(r, c) {
   if (gameOver || currentTurn !== myColor) return
   if (gameMode !== 'ai' && currentTurn !== myColor) return
 
-  // Chain jump: only the piece mid-capture can move
-  if (chainJump && (chainJump.r !== r || chainJump.c !== c)) {
+  // Chain jump: only allow clicking a valid chain target
+  if (chainJump) {
     const target = validMoves.find(m => m.to.r === r && m.to.c === c)
     if (target) { executeMove(target); return }
-    return
+    return  // block all other clicks during chain jump
   }
 
   const piece = board[r]?.[c]
@@ -744,7 +744,9 @@ function renderBoard() {
         pd.textContent = piece.king ? '♔' : ''
         pd.onclick = (e) => { e.stopPropagation(); clickSquare(r, c) }
         sq.appendChild(pd)
-        if (isDark && currentTurn === myColor && piece.color === myColor && !gameOver) {
+        const isChainPiece = chainJump && chainJump.r === r && chainJump.c === c
+        if (isDark && currentTurn === myColor && piece.color === myColor && !gameOver &&
+            (!chainJump || isChainPiece)) {
           sq.classList.add('can-move')
         }
       }
