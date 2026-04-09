@@ -228,15 +228,15 @@
       <div class="status-badge badge-waiting" id="statusBadge">รอ</div>
     </div>
 
-    <!-- Opponent -->
-    <div class="opponent-area" id="opponentArea">
-      <div class="opp-header">
-        <div class="opp-avatar" id="oppAvatar"><span>?</span></div>
-        <div class="opp-name" id="oppName">ผู้เล่น 2</div>
-        <div class="opp-count"><span id="oppCardCount">7</span> ใบ</div>
-      </div>
-      <div class="opp-cards" id="oppCards"></div>
+    <!-- Waiting panel (online only, shown before game starts) -->
+    <div id="waitingPanel" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-family:var(--font-ui);font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">ผู้เล่นในห้อง (<span id="playerCountLabel">1</span>/4)</div>
+      <div id="waitingPlayerList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+      <button id="startGameBtn" onclick="hostStartGame()" style="display:none;width:100%;background:var(--green);color:#0a0a0f;border:none;padding:10px;border-radius:10px;font-family:var(--font-ui);font-size:14px;font-weight:700;cursor:pointer">🎮 เริ่มเกม!</button>
     </div>
+
+    <!-- Opponents (dynamic, rendered per opponent) -->
+    <div id="opponentsContainer"></div>
 
     <!-- Play area: discard + draw -->
     <div class="play-area">
@@ -341,13 +341,17 @@ function getSymbol(card) {
 
 // ─── Game State ─────────────────────────────────────────────
 let deck = []        // card IDs remaining
-let hands = [[], []] // hands[0]=me, hands[1]=opp (card IDs)
+let hands = [[], []] // hands[i] = player i's cards
 let discard = []     // card IDs, top = last
-let currentTurn = 0  // 0=player0, 1=player1
+let currentTurn = 0  // active player index
 let currentColor = 'red'
+let direction = 1    // 1 = clockwise, -1 = counter-clockwise
+let numPlayers = 2   // 2-4
+let playerNames = ['', '']   // indexed by player position
+let playerAvatars = [null, null]
 let gameOver = false
 let myIdx = 0        // which player am I?
-let oppIdx = 1
+let oppIdx = 1       // (AI mode only, or first opponent)
 let gameMode = null  // 'ai'|'create'|'join'
 let roomId = null
 let isHost = false
@@ -358,8 +362,11 @@ let myName = ''
 let myAvatarUrl = null
 let oppName = 'AI'
 let oppAvatarUrl = null
-let pendingAction = false // prevent double actions
-let unoCalled = false     // did I call UNO when hand went to 1?
+let pendingAction = false  // prevent double actions
+let unoCalled = false      // did I call UNO when hand went to 1?
+// Online only: host tracks waiting guests, guest tracks join token
+let waitingPlayers = []    // [{name, avatar, token, idx}]
+let myJoinToken = null     // set by guest when joining
 
 // ─── Profile ────────────────────────────────────────────────
 async function loadMyProfile() {
@@ -428,8 +435,16 @@ function showCoinFlip() {
   document.getElementById('coinText').textContent = 'กำลังโยนเหรียญ...'
   document.getElementById('coinSub').textContent = 'สุ่มว่าใครได้ไปก่อน'
   setTimeout(() => {
-    myIdx = goFirst ? 0 : 1
-    oppIdx = goFirst ? 1 : 0
+    if (gameMode === 'ai') {
+      // AI mode: coin flip sets player indices
+      myIdx = goFirst ? 0 : 1
+      oppIdx = goFirst ? 1 : 0
+    } else {
+      // Online mode: host is always player 0, guest is always player 1
+      // Coin flip only decides who goes first (starting currentTurn)
+      myIdx = 0; oppIdx = 1
+      window._onlineFirstTurn = goFirst ? 0 : 1
+    }
     if (goFirst) {
       document.getElementById('coinEmoji').textContent = '⭐'
       document.getElementById('coinText').textContent = `${myName} ได้ไปก่อน!`
@@ -450,31 +465,46 @@ function showCoinFlip() {
 function startVsAI() {
   oppName = 'AI 🤖'
   oppAvatarUrl = null
-  initGame()
+  window._onlineFirstTurn = undefined  // AI mode: always use player 0 first
+  playerNames = [myName, 'AI 🤖']
+  playerAvatars = [myAvatarUrl, null]
+  initGame(2)
   showGameScreen()
+  document.getElementById('waitingPanel').style.display = 'none'
   renderAll()
   if (currentTurn === oppIdx) setTimeout(doAITurn, 800)
 }
 
 // ─── Online Multiplayer ──────────────────────────────────────
 function startOnlineGame() {
+  waitingPlayers = []
+  myJoinToken = null
   realtimeChannel?.unsubscribe()
   realtimeChannel = db.channel(`uno:${roomId}`)
     .on('broadcast', { event: 'uno' }, ({ payload }) => handleOnlineEvent(payload))
     .subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         if (isHost) {
-          // Host: wait for guest, show waiting
-          document.getElementById('roomInfo').style.display = 'flex'
-          document.getElementById('roomCodeDisplay').textContent = roomId
-          showScreen('gameScreen')
-          setStatus('รอเพื่อนเข้าห้อง...', 'badge-waiting')
+          // Host: show waiting panel, let guests join
+          playerNames = [myName]
+          playerAvatars = [myAvatarUrl]
+          showGameScreen()
+          document.getElementById('waitingPanel').style.display = 'block'
+          document.getElementById('opponentsContainer').innerHTML = ''
           document.getElementById('handCards').innerHTML = '<div style="color:var(--muted);font-size:14px;padding:20px">รอเพื่อนเข้าร่วม...</div>'
+          updateWaitingUI()
+          setStatus('รอเพื่อนเข้าห้อง... (กด เริ่มเกม เมื่อพร้อม)', 'badge-waiting')
         } else {
-          // Guest: announce join
+          // Guest: generate a unique token, announce join
+          myJoinToken = Math.random().toString(36).substring(2, 10)
+          myIdx = -1  // will be assigned by host
+          showGameScreen()
+          document.getElementById('waitingPanel').style.display = 'block'
+          document.getElementById('handCards').innerHTML = '<div style="color:var(--muted);font-size:14px;padding:20px">รอโฮสต์เริ่มเกม...</div>'
+          setStatus('เชื่อมต่อแล้ว รอโฮสต์...', 'badge-waiting')
           await realtimeChannel.send({
             type: 'broadcast', event: 'uno',
-            payload: { type: 'join', name: myName, avatar: myAvatarUrl }
+            payload: { type: 'join', name: myName, avatar: myAvatarUrl, token: myJoinToken }
           })
         }
       }
@@ -482,35 +512,69 @@ function startOnlineGame() {
 }
 
 async function handleOnlineEvent(payload) {
+  // ── Host: player joins ──────────────────────────────────────
   if (payload.type === 'join' && isHost) {
-    oppName = payload.name || 'เพื่อน'
-    oppAvatarUrl = payload.avatar || null
-    // Deal cards and start game
-    initGame()
-    showGameScreen()
-    renderAll()
-    // Send full state to guest
-    await broadcastState('start')
+    // Assign index: 1, 2, or 3 (max 3 guests → 4 players total)
+    const idx = waitingPlayers.length + 1
+    if (idx > 3) return  // room full
+    waitingPlayers.push({ name: payload.name || 'เพื่อน', avatar: payload.avatar || null, token: payload.token, idx })
+    playerNames = [myName, ...waitingPlayers.map(p => p.name)]
+    playerAvatars = [myAvatarUrl, ...waitingPlayers.map(p => p.avatar)]
+    // Tell the joining guest their index
+    await realtimeChannel.send({
+      type: 'broadcast', event: 'uno',
+      payload: { type: 'assigned', token: payload.token, idx }
+    })
+    // Show updated player list to everyone
+    await realtimeChannel.send({
+      type: 'broadcast', event: 'uno',
+      payload: { type: 'playerList', players: playerNames.map((n, i) => ({ name: n, avatar: playerAvatars[i], idx: i })) }
+    })
+    updateWaitingUI()
   }
 
+  // ── Guest: host assigned me an index ───────────────────────
+  if (payload.type === 'assigned' && !isHost) {
+    if (payload.token === myJoinToken) {
+      myIdx = payload.idx
+      oppIdx = myIdx === 0 ? 1 : 0
+    }
+  }
+
+  // ── All: player list updated ────────────────────────────────
+  if (payload.type === 'playerList') {
+    const pl = payload.players || []
+    playerNames = pl.map(p => p.name)
+    playerAvatars = pl.map(p => p.avatar)
+    updateWaitingUI(pl)
+  }
+
+  // ── Host started the game ───────────────────────────────────
   if (payload.type === 'start' && !isHost) {
     applyRemoteState(payload)
-    myIdx = 1; oppIdx = 0
-    oppName = payload.hostName || 'เพื่อน'
-    oppAvatarUrl = payload.hostAvatar || null
-    showGameScreen()
+    oppName = playerNames[myIdx === 0 ? 1 : 0] || 'เพื่อน'
+    oppAvatarUrl = playerAvatars[myIdx === 0 ? 1 : 0] || null
+    document.getElementById('waitingPanel').style.display = 'none'
     renderAll()
     showToast('เกมเริ่มแล้ว!')
   }
 
+  // ── Game state update ───────────────────────────────────────
   if (payload.type === 'state') {
+    const wasGameOver = gameOver
     applyRemoteState(payload)
     renderAll()
-    if (!gameOver && currentTurn === myIdx) {
+    if (gameOver && !wasGameOver) {
+      // Game just ended — find winner (player with 0 cards)
+      const winnerIdx = (payload.hands || []).findIndex(h => h.length === 0)
+      const iWon = winnerIdx === myIdx
+      await endGame(iWon, winnerIdx >= 0 ? winnerIdx : undefined)
+    } else if (!gameOver && currentTurn === myIdx) {
       setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
     }
   }
 
+  // ── Reset ───────────────────────────────────────────────────
   if (payload.type === 'reset') {
     realtimeChannel?.unsubscribe()
     realtimeChannel = null
@@ -522,12 +586,45 @@ async function handleOnlineEvent(payload) {
   }
 }
 
+// Host: update the waiting panel
+function updateWaitingUI(pl) {
+  const players = pl || playerNames.map((n, i) => ({ name: n, avatar: playerAvatars[i], idx: i }))
+  document.getElementById('playerCountLabel').textContent = players.length
+  document.getElementById('waitingPlayerList').innerHTML = players.map(p =>
+    `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text)">
+      <div style="width:24px;height:24px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;overflow:hidden">
+        ${p.avatar ? `<img src="${p.avatar}" style="width:100%;height:100%;object-fit:cover">` : (p.name[0]?.toUpperCase() || '?')}
+      </div>
+      <span>${p.name}</span>
+      ${p.idx === 0 ? '<span style="font-size:10px;color:var(--muted)">(โฮสต์)</span>' : ''}
+    </div>`
+  ).join('')
+  if (isHost) {
+    const btn = document.getElementById('startGameBtn')
+    btn.style.display = players.length >= 2 ? 'block' : 'none'
+  }
+}
+
+// Host manually starts the game
+async function hostStartGame() {
+  if (!isHost || waitingPlayers.length < 1) return
+  const n = waitingPlayers.length + 1
+  playerNames = [myName, ...waitingPlayers.map(p => p.name)]
+  playerAvatars = [myAvatarUrl, ...waitingPlayers.map(p => p.avatar)]
+  initGame(n)
+  document.getElementById('waitingPanel').style.display = 'none'
+  renderAll()
+  await broadcastState('start')
+  setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
+}
+
 async function broadcastState(type = 'state') {
   if (!realtimeChannel) return
   await realtimeChannel.send({
     type: 'broadcast', event: 'uno',
     payload: {
       type, deck, hands, discard, currentTurn, currentColor, gameOver,
+      numPlayers, direction, playerNames, playerAvatars,
       hostName: myName, hostAvatar: myAvatarUrl
     }
   })
@@ -540,15 +637,31 @@ function applyRemoteState(payload) {
   currentTurn = payload.currentTurn ?? 0
   currentColor = payload.currentColor || 'red'
   gameOver = payload.gameOver || false
+  direction = payload.direction ?? 1
+  numPlayers = payload.numPlayers ?? hands.length
+  if (payload.playerNames) playerNames = payload.playerNames
+  if (payload.playerAvatars) playerAvatars = payload.playerAvatars
+}
+
+// ─── Turn helpers ────────────────────────────────────────────
+function advanceTurn(steps = 1) {
+  currentTurn = ((currentTurn + direction * steps) % numPlayers + numPlayers) % numPlayers
+}
+function nextPlayerIdx(steps = 1) {
+  return ((currentTurn + direction * steps) % numPlayers + numPlayers) % numPlayers
 }
 
 // ─── Game Init ───────────────────────────────────────────────
-function initGame() {
+function initGame(n = 2) {
+  numPlayers = n
+  direction = 1
   const deckIds = shuffle(MASTER.map(c => c.id))
-  hands = [[], []]
+  hands = Array(n).fill(null).map(() => [])
+  // Deal 7 cards to each player
   for (let i = 0; i < 7; i++) {
-    hands[0].push(deckIds.pop())
-    hands[1].push(deckIds.pop())
+    for (let p = 0; p < n; p++) {
+      hands[p].push(deckIds.pop())
+    }
   }
   // First discard: skip wilds
   let firstCard
@@ -556,7 +669,7 @@ function initGame() {
   discard = [firstCard]
   deck = deckIds
   currentColor = cardById(firstCard).color
-  currentTurn = 0 // player 0 always goes first; myIdx/oppIdx determine who player 0 is // depends on coin flip
+  currentTurn = window._onlineFirstTurn ?? 0  // coin flip result (online) or player 0 first (AI)
   gameOver = false
   unoCalled = false
   pendingAction = false
@@ -637,6 +750,10 @@ async function selectCard(idx) {
   // Check win
   if (hands[myIdx].length === 0) {
     pendingAction = false
+    if (gameMode !== 'ai') {
+      gameOver = true  // set before broadcast so receivers see gameOver=true
+      await broadcastState()
+    }
     await endGame(true)
     return
   }
@@ -648,7 +765,7 @@ async function selectCard(idx) {
     if (currentTurn === oppIdx) setTimeout(doAITurn, 900)
   } else {
     await broadcastState()
-    setStatus(`รอ ${oppName}...`, 'badge-waiting')
+    setStatus(`รอ ${playerNames[currentTurn] || oppName}...`, 'badge-waiting')
   }
 }
 
@@ -659,32 +776,35 @@ function applyCardEffect(card, chosenColor) {
     currentColor = card.color
   }
 
-  // In 2-player: reverse = skip
+  const victimIdx = nextPlayerIdx(1)
+
   switch (card.type) {
     case 'skip':
+      // Skip next player: advance by 2 (skips victim)
+      advanceTurn(2)
+      break
     case 'reverse':
-      // Opponent's turn is skipped → it's still my turn (but switch then switch back)
-      // Actually: skip = next player loses their turn, so current player goes again
-      // We just don't switch turn (currentTurn stays the same)
-      // But we need to handle it as: skip next, so current stays
-      // currentTurn stays the same
+      direction *= -1
+      if (numPlayers === 2) {
+        // In 2-player, reverse = skip (current player goes again)
+        advanceTurn(2)
+      } else {
+        // In 3-4 player: turn goes to next player in new direction
+        advanceTurn(1)
+      }
       break
     case 'draw2':
-      drawCards(oppIdx, 2)
-      // opp's turn is skipped, stay on current player
+      drawCards(victimIdx, 2)
+      advanceTurn(2)  // victim loses their turn
       break
     case 'wild4':
-      drawCards(oppIdx, 4)
-      // opp's turn is skipped, stay on current player
+      drawCards(victimIdx, 4)
+      advanceTurn(2)  // victim loses their turn
       break
     default:
-      // Normal card: switch turns
-      currentTurn = currentTurn === 0 ? 1 : 0
+      // Normal card: advance to next player
+      advanceTurn(1)
   }
-  // For skip/reverse/draw2/wild4 in 2-player: current player goes again
-  // Actually standard rules: after skip/draw2/wild4, CURRENT player gets to go again only for skip/reverse in 2-player
-  // Draw2/wild4: opponent draws then loses turn, so current player goes again
-  // For simplicity: skip, reverse, draw2, wild4 all keep the same currentTurn
 }
 
 function drawCards(playerIdx, count) {
@@ -717,11 +837,8 @@ async function onDrawPile() {
   hands[myIdx].push(drawnId)
   showToast(`หยิบ ${getSymbol(cardById(drawnId))} มาแล้ว`)
 
-  // If drawn card can be played, auto-highlight (but don't auto-play)
-  // Switch turn after drawing (can't play, turn passes)
-  // Actually: in UNO, after drawing you CAN play the drawn card if it's playable
-  // For simplicity: drawn card is added to hand, turn passes
-  currentTurn = currentTurn === 0 ? 1 : 0
+  // After drawing, turn passes to next player
+  advanceTurn(1)
 
   pendingAction = false
   renderAll()
@@ -764,7 +881,7 @@ async function doAITurn() {
     if (deck.length > 0) {
       hands[oppIdx].push(deck.pop())
     }
-    currentTurn = currentTurn === 0 ? 1 : 0
+    advanceTurn(1)
     renderAll()
     if (currentTurn === myIdx) setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
     return
@@ -775,7 +892,7 @@ async function doAITurn() {
   const chosenColor = result.chosenColor || null
   const card = cardById(cardId)
   const handIdx = hands[oppIdx].indexOf(cardId)
-  if (handIdx === -1) { currentTurn = currentTurn === 0 ? 1 : 0; renderAll(); return }
+  if (handIdx === -1) { advanceTurn(1); renderAll(); return }
 
   hands[oppIdx].splice(handIdx, 1)
   discard.push(cardId)
@@ -829,14 +946,15 @@ function chooseColor(color) {
 }
 
 // ─── End Game ─────────────────────────────────────────────────
-async function endGame(iWon) {
+async function endGame(iWon, winnerIdx = myIdx) {
   gameOver = true
+  const winnerName = playerNames[winnerIdx] || (iWon ? myName : oppName)
   if (iWon) { GameSound.play('win'); GameEffects.confetti() } else { GameSound.play('lose') }
-  if (gameChat) gameChat.gameEvent('win', { winner: iWon ? myName : oppName })
-  setStatus(iWon ? `🎉 ${myName} ชนะ! ไพ่หมดแล้ว!` : `😔 ${oppName} ชนะ!`, 'badge-win')
-  showToast(iWon ? '🏆 ชนะแล้ว! ยอดเยี่ยม!' : '😢 แพ้แล้ว ลองใหม่!')
+  if (gameChat) gameChat.gameEvent('win', { winner: winnerName })
+  setStatus(iWon ? `🎉 ${myName} ชนะ! ไพ่หมดแล้ว!` : `😔 ${winnerName} ชนะ!`, 'badge-win')
+  showToast(iWon ? '🏆 ชนะแล้ว! ยอดเยี่ยม!' : `😢 ${winnerName} ชนะ! ลองใหม่!`)
   renderAll()
-  await saveResult(iWon ? 'win' : 'loss', oppName)
+  await saveResult(iWon ? 'win' : 'loss', winnerName)
 }
 
 async function saveResult(result, opponent) {
@@ -854,14 +972,15 @@ async function saveResult(result, opponent) {
 function renderAll() {
   renderHand()
   renderDiscard()
-  renderOpponent()
+  renderOpponents()
   updateColorIndicator()
   document.getElementById('deckCount').textContent = deck.length
-  document.getElementById('myCardCount').textContent = `${hands[myIdx].length} ใบ`
+  document.getElementById('myCardCount').textContent = `${hands[myIdx]?.length ?? 0} ใบ`
   // Active turn indicator
   if (!gameOver) {
     const isMy = currentTurn === myIdx
-    setStatus(isMy ? 'ตาของคุณ! เลือกไพ่หรือหยิบ' : `รอ ${oppName}...`, isMy ? 'badge-playing' : 'badge-waiting')
+    const turnName = playerNames[currentTurn] || oppName
+    setStatus(isMy ? 'ตาของคุณ! เลือกไพ่หรือหยิบ' : `รอ ${turnName}...`, isMy ? 'badge-playing' : 'badge-waiting')
   }
 }
 
@@ -896,13 +1015,31 @@ function renderDiscard() {
     </div>`
 }
 
-function renderOpponent() {
-  const count = (hands[oppIdx] || []).length
-  document.getElementById('oppCardCount').textContent = count
-  const container = document.getElementById('oppCards')
-  container.innerHTML = Array(Math.min(count, 14)).fill(0).map(() =>
-    `<div class="uno-card card-back"><div class="card-center"></div></div>`
-  ).join('')
+function renderOpponents() {
+  const container = document.getElementById('opponentsContainer')
+  container.innerHTML = ''
+  for (let i = 0; i < numPlayers; i++) {
+    if (i === myIdx) continue
+    const count = (hands[i] || []).length
+    const name = playerNames[i] || `ผู้เล่น ${i + 1}`
+    const avatar = playerAvatars[i]
+    const avatarHtml = avatar
+      ? `<img src="${avatar}" alt="${name[0]}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+      : `<span>${name[0]?.toUpperCase() || '?'}</span>`
+    const isActive = currentTurn === i && !gameOver
+    const cardBacks = Array(Math.min(count, 14)).fill(0).map(() =>
+      `<div class="uno-card card-back" style="transform:scale(0.7);margin:-4px"><div class="card-center"></div></div>`
+    ).join('')
+    container.innerHTML += `
+      <div class="opponent-area" style="${isActive ? 'border-color:var(--accent);' : ''}">
+        <div class="opp-header">
+          <div class="opp-avatar">${avatarHtml}</div>
+          <div class="opp-name">${name}${isActive ? ' 🎯' : ''}</div>
+          <div class="opp-count"><span>${count}</span> ใบ</div>
+        </div>
+        <div class="opp-cards" style="flex-wrap:wrap">${cardBacks}</div>
+      </div>`
+  }
 }
 
 function updateColorIndicator() {
@@ -925,8 +1062,14 @@ async function resetGame() {
   }
   gameOver = false
   pendingAction = false
+  direction = 1
+  numPlayers = 2
+  waitingPlayers = []
+  myJoinToken = null
+  window._onlineFirstTurn = undefined
   document.getElementById('unoBtn').classList.remove('show')
   document.getElementById('colorOverlay').classList.remove('show')
+  document.getElementById('waitingPanel').style.display = 'none'
   showScreen('setupScreen')
 }
 
