@@ -314,6 +314,7 @@ let myBoard = Array(100).fill(null)       // null | 'ship' | 'hit' | 'miss'
 let enemyBoard = Array(100).fill(null)    // null | 'hit' | 'miss' | 'sunk'
 let myHits = 0      // how many of my ships have been hit
 let enemyHits = 0   // how many enemy ships I've hit
+let enemySunks = 0  // how many enemy ships I've sunk (online only)
 let isMyTurn = false
 let enemyName = 'ผู้เล่น 2'
 let enemyAvatarUrl = null
@@ -698,7 +699,7 @@ async function handleOnlineState(payload) {
     receiveShot(payload.idx)
   }
   if (payload.type === 'result') {
-    applyMyBoardResult(payload.idx, payload.result, payload.sunkId)
+    applyMyBoardResult(payload.idx, payload.result, payload.sunkId, payload.sunkCells)
   }
   if (payload.type === 'reset') {
     realtimeChannel?.unsubscribe()
@@ -803,7 +804,7 @@ function updateHP() {
   const myAlive = myShips.filter(s => s.hits < s.size).length
   const enemyAlive = gameMode === 'ai'
     ? aiShips.filter(s => s.hits < s.size).length
-    : totalShips // online: approximate by unconfirmed sunk count
+    : totalShips - enemySunks  // online: track sunks from 'result' broadcasts
   document.getElementById('player1HP').textContent = '🚢'.repeat(isHost ? myAlive : enemyAlive) || '💀'
   document.getElementById('player2HP').textContent = '🚢'.repeat(isHost ? enemyAlive : myAlive) || '💀'
   document.getElementById('myHitsLabel').textContent = `${myHits}/17 โดน`
@@ -887,10 +888,11 @@ function receiveShot(idx) {
   }
   renderMyGrid()
   updateHP()
-  // Send result back
+  // Send result back — include sunk ship cells so attacker can show full sunk ship
+  const sunkShip = sunkId ? myShips.find(s => s.id === sunkId) : null
   realtimeChannel.send({
     type: 'broadcast', event: 'state',
-    payload: { type: 'result', idx, result: isHit ? (sunkId ? 'sunk' : 'hit') : 'miss', sunkId }
+    payload: { type: 'result', idx, result: isHit ? (sunkId ? 'sunk' : 'hit') : 'miss', sunkId, sunkCells: sunkShip ? sunkShip.cells : null }
   })
   if (myHits >= TOTAL_HITS) {
     endGame(false)
@@ -904,10 +906,17 @@ function receiveShot(idx) {
 }
 
 // ---- Online: receive result of my shot ----
-function applyMyBoardResult(idx, result, sunkId) {
+function applyMyBoardResult(idx, result, sunkId, sunkCells) {
   if (result === 'hit' || result === 'sunk') {
     enemyHits++
-    enemyBoard[idx] = result === 'sunk' ? 'sunk' : 'hit'
+    if (result === 'sunk') {
+      // Mark all cells of the sunk ship
+      const cells = sunkCells || [idx]
+      cells.forEach(c => { enemyBoard[c] = 'sunk' })
+      enemySunks++
+    } else {
+      enemyBoard[idx] = 'hit'
+    }
     const sunkDef = result === 'sunk' ? SHIP_DEFS.find(d => d.id === sunkId) : null
     GameSound.play(result === 'sunk' ? 'sunk' : 'hit')
     showToast(result === 'sunk' ? '💥 จมแล้ว!' : '🎯 โดน!')
@@ -1040,6 +1049,7 @@ async function resetGame() {
   enemyBoard = Array(100).fill(null)
   myHits = 0
   enemyHits = 0
+  enemySunks = 0
   isMyTurn = false
   aiShips = []
   aiShipCells = new Set()
