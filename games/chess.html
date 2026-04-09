@@ -763,9 +763,8 @@ function startGame() {
   if (gameMode !== 'ai') {
     const chatEl = document.getElementById('chatContainer');
     chatEl.style.display = 'block';
-    if (typeof GameChat !== 'undefined') {
-      gameChat = new GameChat(chatEl, roomId, myName);
-    }
+    gameChat = new GameChat({ roomId, myName, myAvatar: myAvatarUrl, gameName: 'chess', container: chatEl })
+    gameChat.mount()
   }
 
   updatePlayers();

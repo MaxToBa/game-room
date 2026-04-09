@@ -668,7 +668,7 @@ function startVS() {
 
   // Chat
   if (!gameChat) {
-    gameChat = new GameChat({ roomId, myName, gameName: '2048', containerId: 'chatContainer' });
+    gameChat = new GameChat({ roomId, myName, gameName: '2048', container: document.getElementById('chatContainer') });
     gameChat.mount();
   }
   gameChat?.gameEvent('start');

@@ -118,6 +118,8 @@
         : opts.container
       this.onSend = opts.onSend || null
       this._channel = null
+      this._subscribed = false
+      this._queue = []
       this._wrap = null
       this._messagesEl = null
       this._inputEl = null
@@ -164,21 +166,32 @@
             this.addMessage({ sender: payload.sender, text: payload.text, avatar: payload.avatar, type: 'peer' })
           }
         })
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this._subscribed = true
+            // Flush any messages queued before subscription was ready
+            this._queue.forEach(payload => {
+              this._channel.send({ type: 'broadcast', event: 'chat', payload })
+            })
+            this._queue = []
+          }
+        })
     }
 
     _handleSend() {
-      const text = this._inputEl.value.trim()
+      const text = this._inputEl?.value?.trim()
       if (!text) return
       this._inputEl.value = ''
       // Show locally immediately
       this.addMessage({ sender: this.myName, text, avatar: this.myAvatar, type: 'me' })
-      // Broadcast
+      // Broadcast (queue if channel not yet subscribed)
       if (this._channel) {
-        this._channel.send({
-          type: 'broadcast', event: 'chat',
-          payload: { sender: this.myName, text, avatar: this.myAvatar }
-        })
+        const payload = { sender: this.myName, text, avatar: this.myAvatar }
+        if (this._subscribed) {
+          this._channel.send({ type: 'broadcast', event: 'chat', payload })
+        } else {
+          this._queue.push(payload)
+        }
       }
       if (this.onSend) this.onSend(text)
     }
