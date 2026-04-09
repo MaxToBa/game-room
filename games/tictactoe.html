@@ -213,6 +213,7 @@ let gameOver = false
 let realtimeChannel = null
 let pendingMode = null
 let gameChat = null
+let _coinT1 = null, _coinT2 = null
 
 // โหลดชื่อและ avatar จาก profiles table หรือ localStorage
 async function loadMyProfile() {
@@ -285,6 +286,7 @@ function handleNameNext() {
 }
 
 function showCoinFlip(mode, code) {
+  clearTimeout(_coinT1); clearTimeout(_coinT2)
   showScreen('coinScreen')
   const goFirst = Math.random() < 0.5
   const emoji = document.getElementById('coinEmoji')
@@ -295,7 +297,7 @@ function showCoinFlip(mode, code) {
   text.textContent = 'กำลังโยนเหรียญ...'
   sub.textContent = 'สุ่มว่าใครได้ไปก่อน'
 
-  setTimeout(() => {
+  _coinT1 = setTimeout(() => {
     if (goFirst) {
       emoji.textContent = '⭐'
       text.textContent = `${myName} ได้ไปก่อน!`
@@ -307,7 +309,7 @@ function showCoinFlip(mode, code) {
       sub.textContent = 'คุณจะเป็นฝ่าย ○'
       mySymbol = 'O'
     }
-    setTimeout(() => {
+    _coinT2 = setTimeout(() => {
       if (mode === 'ai') startVsAI(goFirst)
       else startOnlineGame(code, true, goFirst)
     }, 1500)

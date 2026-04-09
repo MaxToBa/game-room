@@ -222,6 +222,7 @@ let roomId = null
 let isHost = false
 let realtimeChannel = null
 let pendingMode = null
+let _coinT1 = null, _coinT2 = null
 let gameOver = false
 let selectedCell = null   // {r,c} selected piece
 let validMoves = []       // [{from,to,captured}]
@@ -294,11 +295,12 @@ function handleNameNext() {
 }
 
 function showCoinFlip() {
+  clearTimeout(_coinT1); clearTimeout(_coinT2)
   showScreen('coinScreen')
   const goFirst = Math.random() < 0.5
   document.getElementById('coinEmoji').textContent = '🪙'
   document.getElementById('coinText').textContent = 'กำลังโยนเหรียญ...'
-  setTimeout(() => {
+  _coinT1 = setTimeout(() => {
     if (goFirst) {
       myColor = 'red'
       document.getElementById('coinEmoji').textContent = '🔴'
@@ -310,7 +312,7 @@ function showCoinFlip() {
       document.getElementById('coinText').textContent = `${myName} ได้หมากดำ!`
       document.getElementById('coinSub').textContent = 'ฝ่ายตรงข้ามเดินก่อน'
     }
-    setTimeout(() => {
+    _coinT2 = setTimeout(() => {
       if (gameMode === 'ai') startVsAI()
       else startOnlineGame()
     }, 1500)

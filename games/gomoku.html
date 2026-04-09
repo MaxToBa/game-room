@@ -222,6 +222,7 @@ let roomId = null
 let gameOver = false
 let realtimeChannel = null
 let pendingMode = null
+let _coinT1 = null, _coinT2 = null
 let gameChat = null
 
 // ── Profile ──────────────────────────────────────────────
@@ -337,13 +338,14 @@ function handleNameNext() {
 }
 
 function showCoinFlip(mode, code) {
+  clearTimeout(_coinT1); clearTimeout(_coinT2)
   showScreen('coinScreen')
   const goFirst = Math.random() < 0.5
   document.getElementById('coinEmoji').textContent = '🪙'
   document.getElementById('coinText').textContent = 'กำลังโยนเหรียญ...'
   document.getElementById('coinSub').textContent = 'สุ่มว่าใครได้ไปก่อน'
 
-  setTimeout(() => {
+  _coinT1 = setTimeout(() => {
     if (goFirst) {
       mySymbol = 'B'
       document.getElementById('coinEmoji').textContent = '⭐'
@@ -355,7 +357,7 @@ function showCoinFlip(mode, code) {
       document.getElementById('coinText').textContent = `${mode === 'ai' ? 'AI' : 'เพื่อน'} ได้ไปก่อน!`
       document.getElementById('coinSub').textContent = 'คุณจะเป็นฝ่ายหมากขาว ⚪'
     }
-    setTimeout(() => {
+    _coinT2 = setTimeout(() => {
       if (mode === 'ai') startVsAI()
       else startOnlineGame(code, true)
     }, 1500)
