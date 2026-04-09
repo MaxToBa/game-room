@@ -530,6 +530,7 @@ async function startOnlineGame(code, isHost) {
   realtimeChannel = db.channel('gomoku:' + code)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: 'id=eq.' + code }, payload => {
       const s = payload.new.state
+      gameOver = false
       board = s.board
       currentTurn = s.turn
       const hostName = s.hostName || 'เพื่อน'
@@ -543,7 +544,8 @@ async function startOnlineGame(code, isHost) {
       setAvatar('player1Avatar', hostSymbol === 'B' ? (s.hostAvatar||null) : (s.guestAvatar||null), p1n)
       setAvatar('player2Avatar', hostSymbol === 'W' ? (s.hostAvatar||null) : (s.guestAvatar||null), p2n)
 
-      updateBoard()
+      if (board.every(c => c === null)) buildBoard()
+      else updateBoard()
       if (payload.new.status === 'playing' && isHost && s.guestName) {
         showToast(`${s.guestName} เข้าร่วมแล้ว! 🎮`)
       }

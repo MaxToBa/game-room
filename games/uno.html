@@ -510,6 +510,16 @@ async function handleOnlineEvent(payload) {
       setStatus('ตาของคุณ! เลือกไพ่', 'badge-playing')
     }
   }
+
+  if (payload.type === 'reset') {
+    realtimeChannel?.unsubscribe()
+    realtimeChannel = null
+    gameOver = false
+    pendingAction = false
+    document.getElementById('unoBtn').classList.remove('show')
+    document.getElementById('colorOverlay').classList.remove('show')
+    showScreen('setupScreen')
+  }
 }
 
 async function broadcastState(type = 'state') {
@@ -903,11 +913,16 @@ function updateColorIndicator() {
 }
 
 // ─── Reset ────────────────────────────────────────────────────
-function resetGame() {
+async function resetGame() {
   if (gameChat) { gameChat.destroy(); gameChat = null }
   document.getElementById('chatContainer').style.display = 'none'
-  realtimeChannel?.unsubscribe()
-  realtimeChannel = null
+  if (realtimeChannel) {
+    if (gameMode !== 'ai') {
+      await realtimeChannel.send({ type: 'broadcast', event: 'uno', payload: { type: 'reset' } })
+    }
+    realtimeChannel.unsubscribe()
+    realtimeChannel = null
+  }
   gameOver = false
   pendingAction = false
   document.getElementById('unoBtn').classList.remove('show')

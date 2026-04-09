@@ -456,6 +456,15 @@ async function handleOnlineEvent(payload) {
     applyRemoteState(payload)
     renderAll()
   }
+  if (payload.type === 'reset') {
+    realtimeChannel?.unsubscribe()
+    realtimeChannel = null
+    gameOver = false
+    selectedCell = null
+    validMoves = []
+    chainJump = null
+    showScreen('setupScreen')
+  }
 }
 
 async function broadcastState(type = 'state') {
@@ -774,11 +783,16 @@ async function saveResult(result, opponent) {
 }
 
 // ─── Reset ────────────────────────────────────────────────────
-function resetGame() {
+async function resetGame() {
   if (gameChat) { gameChat.destroy(); gameChat = null }
   document.getElementById('chatContainer').style.display = 'none'
-  realtimeChannel?.unsubscribe()
-  realtimeChannel = null
+  if (realtimeChannel) {
+    if (gameMode !== 'ai') {
+      await realtimeChannel.send({ type: 'broadcast', event: 'chk', payload: { type: 'reset' } })
+    }
+    realtimeChannel.unsubscribe()
+    realtimeChannel = null
+  }
   gameOver = false
   selectedCell = null
   validMoves = []

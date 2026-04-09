@@ -700,6 +700,12 @@ async function handleOnlineState(payload) {
   if (payload.type === 'result') {
     applyMyBoardResult(payload.idx, payload.result, payload.sunkId)
   }
+  if (payload.type === 'reset') {
+    realtimeChannel?.unsubscribe()
+    realtimeChannel = null
+    gameOver = false
+    showScreen('setupScreen')
+  }
 }
 
 async function sendReady() {
@@ -1019,11 +1025,16 @@ async function saveResult(result, opponent) {
 }
 
 // ---- Reset ----
-function resetGame() {
+async function resetGame() {
   if (gameChat) { gameChat.destroy(); gameChat = null }
   document.getElementById('chatContainer').style.display = 'none'
-  realtimeChannel?.unsubscribe()
-  realtimeChannel = null
+  if (realtimeChannel) {
+    if (gameMode !== 'ai') {
+      await realtimeChannel.send({ type: 'broadcast', event: 'state', payload: { type: 'reset' } })
+    }
+    realtimeChannel.unsubscribe()
+    realtimeChannel = null
+  }
   gameOver = false
   myBoard = Array(100).fill(null)
   enemyBoard = Array(100).fill(null)
